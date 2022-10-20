@@ -1,0 +1,9 @@
+.line {
+  position: absolute;
+  pointer-events: none;
+}
+
+.line path {
+  stroke-width: 4px;
+  /* pointer-events: stroke; */
+}

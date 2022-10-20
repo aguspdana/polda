@@ -1,0 +1,20 @@
+.zoom {
+  height: 48px;
+  padding: 0 16px;
+  margin: 0;
+  border: none;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--color-base-400);
+  background: none;
+}
+
+.zoom:hover {
+  color: var(--color-base-100);
+  background: var(--color-base-700);
+}
+
+.dropdown {
+  height: 0;
+}

@@ -1,0 +1,29 @@
+.canvas__container {
+  flex-grow: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-base-900);
+}
+
+.canvas {
+  position: absolute;
+}
+
+.canvas__background {
+  height: 100%;
+  cursor: grab;
+}
+
+.new-node__layer {
+  position: relative;
+  height: 100%;
+}
+
+.new-node {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  border-radius: 8px;
+  background: var(--color-base-100);
+  opacity: 0.5;
+}

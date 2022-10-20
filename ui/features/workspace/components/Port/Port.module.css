@@ -1,0 +1,41 @@
+.port_container,
+.port,
+.port_active,
+.flare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.port_container {
+  width: 0;
+}
+
+.port,
+.port_active {
+  height: 16px;
+  width: 16px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.flare {
+  width: 8px;
+  height: 8px;
+  border-radius: 8px;
+  background: rgba(237, 237, 237, 0.5);
+  transition: width 0.1s, height 0.1s;
+}
+
+.port_active .flare,
+.port:hover .flare {
+  width: 16px;
+  height: 16px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-base-100);
+}

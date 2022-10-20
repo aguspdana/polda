@@ -1,0 +1,8 @@
+.connection {
+  position: absolute;
+  pointer-events: none;
+}
+
+.connection path {
+  stroke-width: 4px;
+}
