@@ -1,4 +1,4 @@
-use crate::error::QueryError;
+use crate::error::PoldaError;
 
 pub mod aggregate;
 pub mod filter;
@@ -130,7 +130,7 @@ impl Node {
         }
     }
 
-    pub fn execute_operation(&mut self, operation: NodeOperation) -> Result<NodeOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: NodeOperation) -> Result<NodeOperation, PoldaError> {
         match (self, operation) {
             (Node::Aggregate(node), NodeOperation::Aggregate(op)) => {
                 node.execute_operation(op)
@@ -167,7 +167,7 @@ impl Node {
                     .map(|undo| NodeOperation::Union(undo))
             }
 
-            _ => Err(QueryError::Unsyncable)
+            _ => Err(PoldaError::Unsyncable)
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::error::QueryError;
+use crate::error::PoldaError;
 use crate::node::Position;
 
 mod aggregate;
@@ -19,7 +19,7 @@ pub struct AggregateNode {
 
 impl AggregateNode {
     /// Execute an operation and return the undo operation.
-    pub fn execute_operation(&mut self, operation: AggregateNodeOperation) -> Result<AggregateNodeOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: AggregateNodeOperation) -> Result<AggregateNodeOperation, PoldaError> {
         match operation {
             AggregateNodeOperation::SetInput { input } => {
                 let undo = AggregateNodeOperation::SetInput {
@@ -37,7 +37,7 @@ impl AggregateNode {
             }
             AggregateNodeOperation::InsertAggregate { index, aggregate } => {
                 if self.aggregates.len() < index {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     self.aggregates.splice(index..index, [aggregate]);
                     let undo = AggregateNodeOperation::DeleteAggregate {
@@ -48,7 +48,7 @@ impl AggregateNode {
             }
             AggregateNodeOperation::DeleteAggregate { index } => {
                 if index >= self.aggregates.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = AggregateNodeOperation::InsertAggregate {
                         index,
@@ -61,7 +61,7 @@ impl AggregateNode {
             }
             AggregateNodeOperation::SetComputation { index, computation } => {
                 if self.aggregates.len() <= index {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = AggregateNodeOperation::SetComputation {
                         index,
@@ -73,7 +73,7 @@ impl AggregateNode {
             }
             AggregateNodeOperation::SetColumn { index, column } => {
                 if self.aggregates.len() <= index {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = AggregateNodeOperation::SetColumn {
                         index,
@@ -85,7 +85,7 @@ impl AggregateNode {
             }
             AggregateNodeOperation::SetAlias { index, alias } => {
                 if self.aggregates.len() <= index {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = AggregateNodeOperation::SetAlias {
                         index,

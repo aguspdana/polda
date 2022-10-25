@@ -1,4 +1,4 @@
-use crate::error::QueryError;
+use crate::error::PoldaError;
 use crate::node::Position;
 
 mod column;
@@ -9,14 +9,14 @@ pub use operation::SelectNodeOperation;
 
 #[derive(Debug, Clone)]
 pub struct SelectNode {
-    input: Option<String>,
-    outputs: Vec<String>,
-    columns: Vec<SelectColumn>,
-    position: Position
+    pub input: Option<String>,
+    pub outputs: Vec<String>,
+    pub columns: Vec<SelectColumn>,
+    pub position: Position
 }
 
 impl SelectNode {
-    pub fn execute_operation(&mut self, operation: SelectNodeOperation) -> Result<SelectNodeOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: SelectNodeOperation) -> Result<SelectNodeOperation, PoldaError> {
         match operation {
             SelectNodeOperation::SetPosition { position } => {
                 let undo = SelectNodeOperation::SetPosition {
@@ -36,7 +36,7 @@ impl SelectNode {
 
             SelectNodeOperation::InsertColumn { index, column } => {
                 if index > self.columns.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = SelectNodeOperation::DeleteColumn {
                         index
@@ -48,7 +48,7 @@ impl SelectNode {
 
             SelectNodeOperation::DeleteColumn { index } => {
                 if index >= self.columns.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = SelectNodeOperation::InsertColumn {
                         index,
@@ -62,7 +62,7 @@ impl SelectNode {
 
             SelectNodeOperation::SetColumn { index, column } => {
                 if index >= self.columns.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = SelectNodeOperation::SetColumn {
                         index,
@@ -75,7 +75,7 @@ impl SelectNode {
 
             SelectNodeOperation::SetAlias { index, alias } => {
                 if index >= self.columns.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = SelectNodeOperation::SetAlias {
                         index,

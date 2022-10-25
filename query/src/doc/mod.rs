@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::column::Column;
-use crate::error::QueryError;
+use crate::error::PoldaError;
 use crate::node::Node;
+use crate::query::Query;
 
 mod operation;
 
@@ -16,13 +17,91 @@ pub struct Doc {
 }
 
 impl Doc {
-    pub fn collect(&self, id: &String) -> Result<DataFrame, QueryError> {
-        todo!()
+    pub fn collect(&self, id: &String) -> Result<DataFrame, PoldaError> {
+        // TODO: Validate the query before executing.
+
+        let mut queries: HashMap<String, Query> = HashMap::new();
+        let mut polars_queries: HashMap<String, Query> = HashMap::new();
+        let mut nodes_to_query = vec![id.clone()];
+
+        while let Some(id) = nodes_to_query.last().cloned() {
+            if let Some(node) = self.nodes.get(&id) {
+                let inputs = node.inputs();
+
+                // Ensure all inputs are in queries, otherwise push to
+                // nodes_to_query.
+                let mut are_inputs_in_queries = true;
+                inputs.iter().for_each(|id| {
+                    if !queries.contains_key(id) {
+                        are_inputs_in_queries = false;
+                        nodes_to_query.push(id.clone());
+                    }
+                });
+
+                if !are_inputs_in_queries {
+                    continue;
+                }
+
+                // Check if the input queries have the same backend.
+                let mut same_backend = true;
+                if let Some(first_input) = inputs.first() {
+                    if let Some(first_input_query) = queries.get(first_input) {
+                        for input in inputs[1..].iter() {
+                            let input_query = queries.get(input).unwrap();
+                            if !first_input_query.same_backend(input_query) {
+                                same_backend = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                let inputs_queries: Vec<Query> = if !same_backend {
+                    // Input queries have different backends: Convert them into
+                    // polars queries.
+                    for input in inputs.iter() {
+                        if !polars_queries.contains_key(input) {
+                            let query = queries
+                                .get(input)
+                                .unwrap()
+                                .clone()
+                                .polars()?;
+                            let query = Query::Polars(query);
+                            polars_queries.insert(input.clone(), query);
+                        }
+                    }
+
+                    inputs
+                        .iter()
+                        .map(|input| {
+                            polars_queries.get(input).unwrap().clone()
+                        })
+                        .collect()
+                } else {
+                    // Input queries have the same backend: Build the query for
+                    // current node.
+                    inputs
+                        .iter()
+                        .map(|input| {
+                            queries.get(input).unwrap().clone()
+                        })
+                        .collect()
+                };
+
+                let query = Query::new(node, inputs_queries)?;
+                queries.insert(id.clone(), query);
+                nodes_to_query.pop();
+            } else {
+                // TODO: Error
+            }
+        }
+
+        queries.remove(id).unwrap().collect()
     }
 
     /// Execute operations and return operations (if any) that used to break
     /// cycles in the graph.
-    pub fn execute_opearations(&mut self, operations: Vec<DocOperation>) -> Result<Vec<DocOperation>, QueryError> {
+    pub fn execute_opearations(&mut self, operations: Vec<DocOperation>) -> Result<Vec<DocOperation>, PoldaError> {
         // Get inputs of the altered nodes.
         let mut inputs_before = HashMap::new();
         operations.iter().for_each(|op| {
@@ -88,14 +167,14 @@ impl Doc {
 
     /// Execute an operation and return the undo operation.  Return `None` if
     /// the operation can't be executed.
-    pub fn execute_operation(&mut self, operation: DocOperation) -> Result<DocOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: DocOperation) -> Result<DocOperation, PoldaError> {
         match operation {
             DocOperation::InsertNode { id, node } => {
                 if self.nodes.contains_key(&id) {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else if node.inputs().len() != 0 || node.outputs().len() != 0 {
                     // Disallow inserting a node that already has inputs/outputs.
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = DocOperation::DeleteNode { id: id.clone() };
                     self.nodes.insert(id, node);
@@ -107,15 +186,15 @@ impl Doc {
                 if let Some(node) = self.nodes.get(&id) {
                     if node.inputs().len() != 0 || node.outputs().len() != 0 {
                         // Disallow inserting a node that still has inputs/outputs.
-                        Err(QueryError::Unsyncable)
+                        Err(PoldaError::Unsyncable)
                     } else {
                         self.nodes
                             .remove(&id)
                             .map(|node| DocOperation::InsertNode { id, node })
-                            .ok_or(QueryError::Unsyncable)
+                            .ok_or(PoldaError::Unsyncable)
                     }
                 } else {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 }
             }
 
@@ -153,7 +232,7 @@ impl Doc {
 
                     undo
                 } else {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 };
 
                 remove_output_from_node.iter().for_each(|node_id| {
@@ -180,7 +259,7 @@ impl Doc {
                     self.index.splice(index..index, [id]);
                     Ok(undo)
                 } else {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 }
             }
 
@@ -195,16 +274,49 @@ impl Doc {
                         self.index.splice(index..end, []);
                         Ok(undo)
                     } else {
-                        Err(QueryError::Unsyncable)
+                        Err(PoldaError::Unsyncable)
                     }
                 } else {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 }
             }
         }
     }
 
-    pub fn columns(&self, id: &String) -> Vec<Column> {
-        todo!()
+    pub fn new() -> Doc {
+        Doc {
+            nodes: HashMap::new(),
+            index: vec![]
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::node::{LoadCsvNode, Position};
+    use super::*;
+
+    #[test]
+    fn doc_collect() {
+        let mut doc = Doc::new();
+        let ops = vec![
+            DocOperation::InsertNode {
+                id: String::from("a"),
+                node: Node::LoadCsv(LoadCsvNode {
+                    outputs: vec![],
+                    path: String::from("data/test.csv"),
+                    position: Position {
+                        x: 0,
+                        y: 0
+                    }
+                })
+            },
+            DocOperation::InsertIndex {
+                index: 0,
+                id: String::from("a")
+            }
+        ];
+        doc.execute_opearations(ops).unwrap();
+        println!("{}", doc.collect(&String::from("a")).unwrap());
     }
 }

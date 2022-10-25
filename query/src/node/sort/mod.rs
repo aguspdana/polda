@@ -1,4 +1,4 @@
-use crate::error::QueryError;
+use crate::error::PoldaError;
 use crate::node::Position;
 
 mod direction;
@@ -18,7 +18,7 @@ pub struct SortNode {
 }
 
 impl SortNode {
-    pub fn execute_operation(&mut self, operation: SortNodeOperation) -> Result<SortNodeOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: SortNodeOperation) -> Result<SortNodeOperation, PoldaError> {
         match operation {
             SortNodeOperation::SetPosition { position } => {
                 let undo = SortNodeOperation::SetPosition {
@@ -38,7 +38,7 @@ impl SortNode {
 
             SortNodeOperation::InsertSorter { index, sorter } => {
                 if index > self.sorters.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = SortNodeOperation::DeleteSorter { index };
                     self.sorters.splice(index..index, [sorter]);
@@ -48,7 +48,7 @@ impl SortNode {
 
             SortNodeOperation::DeleteSorter { index } => {
                 if index >= self.sorters.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = SortNodeOperation::InsertSorter {
                         index,
@@ -62,7 +62,7 @@ impl SortNode {
 
             SortNodeOperation::SetColumn { index, column } => {
                 if index >= self.sorters.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = SortNodeOperation::SetColumn {
                         index,
@@ -75,7 +75,7 @@ impl SortNode {
 
             SortNodeOperation::SetDirection { index, direction } => {
                 if index >= self.sorters.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = SortNodeOperation::SetDirection {
                         index,

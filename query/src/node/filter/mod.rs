@@ -1,4 +1,4 @@
-use crate::error::QueryError;
+use crate::error::PoldaError;
 use crate::node::Position;
 
 mod filter;
@@ -18,7 +18,7 @@ pub struct FilterNode {
 }
 
 impl FilterNode {
-    pub fn execute_operation(&mut self, operation: FilterNodeOperation) -> Result<FilterNodeOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: FilterNodeOperation) -> Result<FilterNodeOperation, PoldaError> {
         match operation {
             FilterNodeOperation::SetPosition { position } => {
                 let undo = FilterNodeOperation::SetPosition {
@@ -38,7 +38,7 @@ impl FilterNode {
 
             FilterNodeOperation::InsertFilter { index, filter } => {
                 if index > self.filters.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = FilterNodeOperation::DeleteFilter { index };
                     self.filters.splice(index..index, [filter]);
@@ -48,7 +48,7 @@ impl FilterNode {
 
             FilterNodeOperation::DeleteFilter { index } => {
                 if index >= self.filters.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = FilterNodeOperation::InsertFilter {
                         index,
@@ -62,7 +62,7 @@ impl FilterNode {
 
             FilterNodeOperation::SetColumn { index, column } => {
                 if index >= self.filters.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = FilterNodeOperation::SetColumn {
                         index,
@@ -75,7 +75,7 @@ impl FilterNode {
 
             FilterNodeOperation::SetPredicate { index, predicate } => {
                 if index >= self.filters.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = FilterNodeOperation::SetPredicate {
                         index,

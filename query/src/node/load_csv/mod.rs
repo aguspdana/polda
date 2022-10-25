@@ -1,4 +1,4 @@
-use crate::error::QueryError;
+use crate::error::PoldaError;
 use crate::node::Position;
 
 mod operation;
@@ -7,13 +7,13 @@ pub use operation::LoadCsvNodeOperation;
 
 #[derive(Debug, Clone)]
 pub struct LoadCsvNode {
-    outputs: Vec<String>,
-    path: String,
-    position: Position
+    pub outputs: Vec<String>,
+    pub path: String,
+    pub position: Position
 }
 
 impl LoadCsvNode {
-    pub fn execute_operation(&mut self, operation: LoadCsvNodeOperation) -> Result<LoadCsvNodeOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: LoadCsvNodeOperation) -> Result<LoadCsvNodeOperation, PoldaError> {
         match operation {
             LoadCsvNodeOperation::SetPosition { position } => {
                 let undo = LoadCsvNodeOperation::SetPosition {

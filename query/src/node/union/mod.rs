@@ -1,4 +1,4 @@
-use crate::error::QueryError;
+use crate::error::PoldaError;
 use crate::node::Position;
 
 mod operation;
@@ -14,7 +14,7 @@ pub struct UnionNode {
 }
 
 impl UnionNode {
-    pub fn execute_operation(&mut self, operation: UnionNodeOperation) -> Result<UnionNodeOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: UnionNodeOperation) -> Result<UnionNodeOperation, PoldaError> {
         match operation {
             UnionNodeOperation::SetPosition { position } => {
                 let undo = UnionNodeOperation::SetPosition {

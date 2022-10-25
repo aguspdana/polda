@@ -1,4 +1,4 @@
-use crate::error::QueryError;
+use crate::error::PoldaError;
 use crate::node::Position;
 
 mod column;
@@ -20,7 +20,7 @@ pub struct JoinNode {
 }
 
 impl JoinNode {
-    pub fn execute_operation(&mut self, operation: JoinNodeOperation) -> Result<JoinNodeOperation, QueryError> {
+    pub fn execute_operation(&mut self, operation: JoinNodeOperation) -> Result<JoinNodeOperation, PoldaError> {
         match operation {
             JoinNodeOperation::SetPosition { position } => {
                 let undo = JoinNodeOperation::SetPosition {
@@ -56,7 +56,7 @@ impl JoinNode {
 
             JoinNodeOperation::InsertJoinColumn { index, column } => {
                 if index > self.columns.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = JoinNodeOperation::DeleteJoinColumn {
                         index
@@ -68,7 +68,7 @@ impl JoinNode {
 
             JoinNodeOperation::DeleteJoinColumn { index } => {
                 if index >= self.columns.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = JoinNodeOperation::InsertJoinColumn {
                         index,
@@ -82,7 +82,7 @@ impl JoinNode {
 
             JoinNodeOperation::SetLeftColumn { index, column } => {
                 if index >= self.columns.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = JoinNodeOperation::SetLeftColumn {
                         index,
@@ -95,7 +95,7 @@ impl JoinNode {
 
             JoinNodeOperation::SetRightColumn { index, column } => {
                 if index >= self.columns.len() {
-                    Err(QueryError::Unsyncable)
+                    Err(PoldaError::Unsyncable)
                 } else {
                     let undo = JoinNodeOperation::SetRightColumn {
                         index,
