@@ -7,6 +7,8 @@ use std::sync::Arc;
 
 use crate::error::PoldaError;
 use crate::data_type::DataType;
+use crate::doc::Aggregate;
+use crate::doc::AggregateComputation;
 use crate::doc::Node;
 use crate::doc::Filter;
 use crate::doc::FilterPredicate;
@@ -34,6 +36,81 @@ impl PolarsQuery {
         mut inputs: Vec<PolarsQuery>
     ) -> Result<PolarsQuery, PoldaError> {
         match node {
+            Node::Aggregate {
+                id,
+                position: _,
+                input: _,
+                aggregates,
+                outputs: _
+            } => {
+                if let Some(input) = inputs.pop() {
+                    let PolarsQuery { frame, schema } = input;
+                    let mut groups = vec![];
+                    let mut aggs = vec![];
+                    let mut new_schema = HashMap::new();
+
+                    for agg in aggregates.into_iter() {
+                        let Aggregate { column, computation, alias } = agg;
+                        if column.is_empty() {
+                            continue;
+                        }
+                        let dtype = schema.get(column)
+                            .ok_or(PoldaError::QueryError(format!("Column \"{}\" doesn't exist in the input table of node \"{}\"", column, id)))?
+                            .clone();
+                        let new_column = if alias.is_empty() {
+                            column.clone()
+                        } else {
+                            alias.clone()
+                        };
+                        let mut expr = col(&*column);
+                        use AggregateComputation::*;
+                        match computation {
+                            Count => {
+                                expr = expr.count();
+                                new_schema.insert(new_column, DataType::UInt32);
+                            },
+                            Group => {
+                                new_schema.insert(new_column, dtype);
+                            },
+                            Max => {
+                                expr = expr.max();
+                                new_schema.insert(new_column, dtype);
+                            },
+                            Mean => {
+                                expr = expr.mean();
+                                new_schema.insert(new_column, dtype);
+                            },
+                            Median => {
+                                expr = expr.median();
+                                new_schema.insert(new_column, dtype);
+                            },
+                            Min => {
+                                expr = expr.min();
+                                new_schema.insert(new_column, dtype);
+                            },
+                            Sum => {
+                                expr = expr.sum();
+                                new_schema.insert(new_column, dtype);
+                            },
+                        }
+                        if !alias.is_empty() {
+                            expr = expr.alias(&*alias);
+                        }
+                        if let Group = computation {
+                            groups.push(expr);
+                        } else {
+                            aggs.push(expr);
+                        }
+                    }
+                    let frame = frame
+                        .groupby(&*groups)
+                        .agg(&*aggs);
+                    Ok(PolarsQuery::new(frame, Arc::new(new_schema)))
+                } else {
+                    Err(PoldaError::QueryError(format!("Node \"{}\" is missing an input table", id)))
+                }
+            }
+
             Node::Filter {
                 id,
                 position: _,

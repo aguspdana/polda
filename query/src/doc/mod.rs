@@ -1358,12 +1358,7 @@ impl Doc {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use super::Doc;
-    use super::Node;
-    use super::Operation;
-    use super::types::InputName;
-    use super::types::Position;
-    use super::types::select::SelectColumn;
+    use super::*;
 
     #[test]
     fn execute_operations() {
@@ -1413,11 +1408,58 @@ mod tests {
                 id: "b".to_string(),
                 name: InputName::Primary,
                 input: Some("a".to_string())
+            },
+            Operation::InsertNode {
+                node: Node::Aggregate {
+                    id: "c".to_string(),
+                    position: Position {
+                        x: 0,
+                        y: 0
+                    },
+                    input: None,
+                    aggregates: vec![
+                        Aggregate {
+                            column: String::from("City"),
+                            computation: AggregateComputation::Group,
+                            alias: String::from("")
+                        },
+                        Aggregate {
+                            column: String::from("Product line"),
+                            computation: AggregateComputation::Group,
+                            alias: String::from("")
+                        },
+                        Aggregate {
+                            column: String::from("Quantity"),
+                            computation: AggregateComputation::Sum,
+                            alias: String::from("")
+                        },
+                        Aggregate {
+                            column: String::from("Total"),
+                            computation: AggregateComputation::Sum,
+                            alias: String::from("")
+                        },
+                        Aggregate {
+                            column: String::from("Total"),
+                            computation: AggregateComputation::Mean,
+                            alias: String::from("Mean")
+                        }
+                    ],
+                    outputs: HashSet::new()
+                }
+            },
+            Operation::InsertIndex {
+                id: "c".to_string(),
+                index: 0
+            },
+            Operation::SetInput {
+                id: "c".to_string(),
+                name: InputName::Primary,
+                input: Some("a".to_string())
             }
         ];
         doc.execute_operations(ops).unwrap();
         println!("{:#?}", doc);
-        let df = doc.collect(&String::from("a")).unwrap();
+        let df = doc.collect(&String::from("c")).unwrap();
         println!("{:#?}", df);
     }
 }

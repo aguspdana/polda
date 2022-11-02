@@ -7,10 +7,10 @@ pub struct Aggregate {
 
 #[derive(Debug, Clone)]
 pub enum AggregateComputation {
-    Avg,
     Count,
     Group,
     Max,
+    Mean,
     Median,
     Min,
     Sum,
