@@ -1,4 +1,10 @@
-use crate::node::Value;
+use super::Value;
+
+#[derive(Debug, Clone)]
+pub struct Filter {
+    pub column: String,
+    pub predicate: FilterPredicate
+}
 
 #[derive(Debug, Clone)]
 pub enum FilterPredicate {

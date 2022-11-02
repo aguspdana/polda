@@ -2,9 +2,11 @@ use polars::prelude::PolarsError;
 
 #[derive(Debug)]
 pub enum PoldaError {
+    DocError(String),
+    ParseError(String),
     PolarsError(PolarsError),
-    QueryError,
-    Unsyncable,
+    QueryError(String),
+    OperationError(String),
 }
 
 impl From<PolarsError> for PoldaError {
