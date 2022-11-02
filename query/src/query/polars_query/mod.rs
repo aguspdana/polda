@@ -5,6 +5,8 @@ use polars::prelude::LazyCsvReader;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::doc::SortDirection;
+use crate::doc::Sorter;
 use crate::error::PoldaError;
 use crate::data_type::DataType;
 use crate::doc::Aggregate;
@@ -207,6 +209,41 @@ impl PolarsQuery {
                         schema: Arc::new(schema)
                     };
                     Ok(query)
+                } else {
+                    Err(PoldaError::QueryError(format!("Node {} is missing an input table", id)))
+                }
+            }
+
+            Node::Sort {
+                id,
+                position: _,
+                input: _,
+                sorters,
+                outputs: _
+            } => {
+                if let Some(input) = inputs.pop() {
+                    let PolarsQuery { frame, schema } = input;
+                    let mut exprs = vec![];
+                    let mut reverses = vec![];
+                    for sorter in sorters.into_iter() {
+                        let Sorter { column, direction } = sorter;
+                        if column.is_empty() {
+                            continue;
+                        }
+                        if !schema.contains_key(column) {
+                            return Err(PoldaError::QueryError(format!("Column \"{}\" doesn't exist in the input table of node \"{}\"", column, id)))
+                        }
+                        let expr = col(&*column);
+                        exprs.push(expr);
+                        let reverse = if let SortDirection::Desc = direction {
+                            true
+                        } else {
+                            false
+                        };
+                        reverses.push(reverse);
+                    }
+                    let frame = frame.sort_by_exprs(exprs, reverses, true);
+                    Ok(PolarsQuery::new(frame, schema))
                 } else {
                     Err(PoldaError::QueryError(format!("Node {} is missing an input table", id)))
                 }

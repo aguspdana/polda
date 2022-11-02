@@ -1455,11 +1455,37 @@ mod tests {
                 id: "c".to_string(),
                 name: InputName::Primary,
                 input: Some("a".to_string())
+            },
+            Operation::InsertNode {
+                node: Node::Sort {
+                    id: "d".to_string(),
+                    position: Position {
+                        x: 0,
+                        y: 0
+                    },
+                    input: None,
+                    sorters: vec![
+                        Sorter {
+                            column: String::from("Total"),
+                            direction: SortDirection::Desc
+                        }
+                    ],
+                    outputs: HashSet::new()
+                }
+            },
+            Operation::InsertIndex {
+                id: "d".to_string(),
+                index: 0
+            },
+            Operation::SetInput {
+                id: "d".to_string(),
+                name: InputName::Primary,
+                input: Some("c".to_string())
             }
         ];
         doc.execute_operations(ops).unwrap();
         println!("{:#?}", doc);
-        let df = doc.collect(&String::from("c")).unwrap();
+        let df = doc.collect(&String::from("d")).unwrap();
         println!("{:#?}", df);
     }
 }
