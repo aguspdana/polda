@@ -99,23 +99,57 @@ impl PolarsQuery {
                 for filter in filters.iter() {
                     let Filter { column, predicate } = filter;
                     let col_expr = col(column);
+                    let dtype = schema.0
+                        .get(column)
+                        .unwrap();
+
                     use FilterPredicate::*;
                     match predicate {
                         IsEqualTo(value) => {
-                            let comp_expr = match value {
-                                Value::Column(column) => col(column),
-                                Value::Constant(constant) => {
-                                    schema.0
-                                        .get(column)
-                                        .map(|dtype| parse_constant_expr(constant.as_str(), dtype))
-                                        .ok_or(PoldaError::QueryError(format!("Column \"{}\" does not exist", {column})))??
-                                }
-                            };
+                            let comp_expr = value_to_expr(value, dtype)?;
                             let expr = col_expr.eq(comp_expr);
                             exprs.push(expr);
                         }
 
-                        _ => todo!()
+                        IsNotEqualTo(value) => {
+                            let comp_expr = value_to_expr(value, dtype)?;
+                            let expr = col_expr.neq(comp_expr);
+                            exprs.push(expr);
+                        }
+
+                        IsLessThan(value) => {
+                            let comp_expr = value_to_expr(value, dtype)?;
+                            let expr = col_expr.lt(comp_expr);
+                            exprs.push(expr);
+                        }
+
+                        IsLessThanEqual(value) => {
+                            let comp_expr = value_to_expr(value, dtype)?;
+                            let expr = col_expr.lt_eq(comp_expr);
+                            exprs.push(expr);
+                        }
+
+                        IsGreaterThan(value) => {
+                            let comp_expr = value_to_expr(value, dtype)?;
+                            let expr = col_expr.gt(comp_expr);
+                            exprs.push(expr);
+                        }
+
+                        IsGreaterThanEqual(value) => {
+                            let comp_expr = value_to_expr(value, dtype)?;
+                            let expr = col_expr.gt_eq(comp_expr);
+                            exprs.push(expr);
+                        }
+
+                        IsNull => {
+                            let expr = col_expr.is_null();
+                            exprs.push(expr);
+                        }
+
+                        IsNotNull => {
+                            let expr = col_expr.is_not_null();
+                            exprs.push(expr);
+                        }
                     }
                 }
 
@@ -342,4 +376,14 @@ pub fn parse_constant_expr(
         }
         _ => todo!()
     }
+}
+
+fn value_to_expr(value: &Value, dtype: &DataType) -> Result<Expr, PoldaError> {
+    let expr = match value {
+        Value::Column(column) => col(column),
+        Value::Constant(constant) => {
+            parse_constant_expr(constant.as_str(), dtype)?
+        }
+    };
+    Ok(expr)
 }

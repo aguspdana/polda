@@ -11,7 +11,9 @@ pub enum FilterPredicate {
     IsEqualTo(Value),
     IsNotEqualTo(Value),
     IsLessThan(Value),
+    IsLessThanEqual(Value),
     IsGreaterThan(Value),
+    IsGreaterThanEqual(Value),
     IsNull,
     IsNotNull
 }
