@@ -3,7 +3,8 @@ pub enum JoinType {
     Inner,
     Left,
     Right,
-    Full
+    Full,
+    Cross
 }
 
 #[derive(Debug, Clone)]

@@ -2,7 +2,7 @@ use polars::datatypes::DataType as PolarsDataType;
 
 use crate::error::PoldaError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DataType {
     Boolean,
     Date,

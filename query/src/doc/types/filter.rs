@@ -12,7 +12,6 @@ pub enum FilterPredicate {
     IsNotEqualTo(Value),
     IsLessThan(Value),
     IsGreaterThan(Value),
-    IsIn(Vec<String>),
     IsNull,
     IsNotNull
 }

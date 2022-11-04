@@ -19,8 +19,8 @@ impl DuckDbQuery {
     }
 
     pub fn from_node(
-        node: &Node,
-        mut inputs: Vec<DuckDbQuery>
+        _node: &Node,
+        mut _inputs: Vec<DuckDbQuery>
     ) -> Result<DuckDbQuery, PoldaError> {
         todo!()
     }

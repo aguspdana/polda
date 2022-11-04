@@ -1,3 +1,5 @@
+use crate::error::PoldaError;
+
 use super::Node;
 use super::InputName;
 use super::Position;
@@ -2312,4 +2314,62 @@ pub fn transform_batch(batch: Vec<Operation>, preceded_by: &Vec<Operation>) -> V
         .filter(|op| op.is_some())
         .map(|op| op.unwrap())
         .collect()
+}
+
+pub fn validate_sequence(operations: &Vec<Operation>) -> Result<(), PoldaError> {
+    // DeleteIndex must be followed by DeleteNode or InsertIndex.
+    // InsertNode must be followed by InsertIndex.
+    let mut sequence: Option<&Operation> = None;
+
+    for op in operations.iter() {
+        use Operation::*;
+        match sequence {
+            Some(DeleteIndex { id: prev_id, index: _ }) => {
+                let err = "DeleteIndex operation must be followed by DeleteNode or InsertIndex operation with the same node id";
+                match op {
+                    DeleteNode { id } => {
+                        if id == prev_id {
+                            sequence = None
+                        } else {
+                            return Err(PoldaError::OperationError(err.to_string()));
+                        }
+                    }
+                    InsertIndex { id, index: _ } => {
+                        if id == prev_id {
+                            sequence = None
+                        } else {
+                            return Err(PoldaError::OperationError(err.to_string()));
+                        }
+                    }
+                    _ => {
+                        return Err(PoldaError::OperationError(err.to_string()));
+                    }
+                }
+            }
+            Some(InsertNode { node }) => {
+                let err = "InsertNode operation must be followed by InsertIndex operation with the same node id";
+                if let InsertIndex { id, index: _ } = op {
+                    if id == node.id() {
+                        sequence = None;
+                    } else {
+                        return Err(PoldaError::OperationError(err.to_string()));
+                    }
+                } else {
+                    return Err(PoldaError::OperationError(err.to_string()));
+                }
+            }
+            _ => {
+                match op {
+                    InsertNode { node: _ } => {
+                        sequence = Some(op);
+                    }
+                    DeleteIndex { id: _, index: _ } => {
+                        sequence = Some(op);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    Ok(())
 }

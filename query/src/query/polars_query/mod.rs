@@ -1,14 +1,19 @@
 use polars::frame::DataFrame;
+use polars::frame::hash_join::JoinType as PolarsJoinType;
+use polars::lazy::prelude::lit;
 use polars::lazy::frame::LazyFrame;
 use polars::prelude::col;
+use polars::prelude::concat;
+use polars::prelude::Expr;
 use polars::prelude::LazyCsvReader;
-use std::collections::HashMap;
-use std::sync::Arc;
 
+use crate::data_type::DataType;
+use crate::doc::JoinColumn;
+use crate::doc::JoinType;
+use crate::doc::SelectColumn;
 use crate::doc::SortDirection;
 use crate::doc::Sorter;
 use crate::error::PoldaError;
-use crate::data_type::DataType;
 use crate::doc::Aggregate;
 use crate::doc::AggregateComputation;
 use crate::doc::Node;
@@ -17,15 +22,10 @@ use crate::doc::FilterPredicate;
 use crate::doc::Value;
 use super::Schema;
 
-mod utils;
-
-use utils::get_csv_schema;
-use utils::parse_constant_expr;
-
 #[derive(Clone)]
 pub struct PolarsQuery {
     pub frame: LazyFrame,
-    pub schema: Arc<Schema>
+    pub schema: Schema
 }
 
 impl PolarsQuery {
@@ -35,123 +35,161 @@ impl PolarsQuery {
 
     pub fn from_node(
         node: &Node,
-        mut inputs: Vec<PolarsQuery>
+        inputs: Vec<PolarsQuery>
     ) -> Result<PolarsQuery, PoldaError> {
-        match node {
+        let input_schemas = inputs
+            .iter()
+            .map(|input| input.schema.clone())
+            .collect();
+        let schema = Schema::try_from_node(node, input_schemas)?;
+
+        let frame: LazyFrame = match node {
             Node::Aggregate {
-                id,
+                id: _,
                 position: _,
                 input: _,
                 aggregates,
                 outputs: _
             } => {
-                if let Some(input) = inputs.pop() {
-                    let PolarsQuery { frame, schema } = input;
-                    let mut groups = vec![];
-                    let mut aggs = vec![];
-                    let mut new_schema = HashMap::new();
+                let mut groups = vec![];
+                let mut aggs = vec![];
 
-                    for agg in aggregates.into_iter() {
-                        let Aggregate { column, computation, alias } = agg;
-                        if column.is_empty() {
-                            continue;
-                        }
-                        let dtype = schema.get(column)
-                            .ok_or(PoldaError::QueryError(format!("Column \"{}\" doesn't exist in the input table of node \"{}\"", column, id)))?
-                            .clone();
-                        let new_column = if alias.is_empty() {
-                            column.clone()
-                        } else {
-                            alias.clone()
-                        };
-                        let mut expr = col(&*column);
-                        use AggregateComputation::*;
-                        match computation {
-                            Count => {
-                                expr = expr.count();
-                                new_schema.insert(new_column, DataType::UInt32);
-                            },
-                            Group => {
-                                new_schema.insert(new_column, dtype);
-                            },
-                            Max => {
-                                expr = expr.max();
-                                new_schema.insert(new_column, dtype);
-                            },
-                            Mean => {
-                                expr = expr.mean();
-                                new_schema.insert(new_column, dtype);
-                            },
-                            Median => {
-                                expr = expr.median();
-                                new_schema.insert(new_column, dtype);
-                            },
-                            Min => {
-                                expr = expr.min();
-                                new_schema.insert(new_column, dtype);
-                            },
-                            Sum => {
-                                expr = expr.sum();
-                                new_schema.insert(new_column, dtype);
-                            },
-                        }
-                        if !alias.is_empty() {
-                            expr = expr.alias(&*alias);
-                        }
-                        if let Group = computation {
-                            groups.push(expr);
-                        } else {
-                            aggs.push(expr);
-                        }
+                for agg in aggregates.into_iter() {
+                    let Aggregate { column, computation, alias } = agg;
+                    let expr = col(&*column);
+                    use AggregateComputation::*;
+                    let expr = match computation {
+                        Count => expr.count(),
+                        Group => expr,
+                        Max => expr.max(),
+                        Mean => expr.mean(),
+                        Median => expr.median(),
+                        Min => expr.min(),
+                        Sum => expr.sum()
+                    };
+                    let expr = if !alias.is_empty() {
+                        expr.alias(&*alias)
+                    } else {
+                        expr
+                    };
+                    if let Group = computation {
+                        groups.push(expr);
+                    } else {
+                        aggs.push(expr);
                     }
-                    let frame = frame
-                        .groupby(&*groups)
-                        .agg(&*aggs);
-                    Ok(PolarsQuery::new(frame, Arc::new(new_schema)))
-                } else {
-                    Err(PoldaError::QueryError(format!("Node \"{}\" is missing an input table", id)))
                 }
+                inputs
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .frame
+                    .groupby(&*groups)
+                    .agg(&*aggs)
             }
 
             Node::Filter {
-                id,
+                id: _,
                 position: _,
                 input: _,
                 filters,
                 outputs: _
             } => {
-                if let Some(input) = inputs.pop() {
-                    let PolarsQuery { frame, schema } = input;
-                    let mut exprs = vec![];
-                    for filter in filters.iter() {
-                        let Filter { column, predicate } = filter;
-                        let col_expr = col(column);
-                        match predicate {
-                            FilterPredicate::IsEqualTo(value) => {
-                                let comp_expr = match value {
-                                    Value::Column(column) => col(column),
-                                    Value::Constant(constant) => {
-                                        schema
-                                            .get(column)
-                                            .map(|dtype| parse_constant_expr(constant.as_str(), dtype))
-                                            .ok_or(PoldaError::QueryError(format!("Column \"{}\" does not exist", {column})))??
-                                    }
-                                };
-                                let expr = col_expr.eq(comp_expr);
-                                exprs.push(expr);
-                            }
+                let mut exprs = vec![];
 
-                            _ => todo!()
+                for filter in filters.iter() {
+                    let Filter { column, predicate } = filter;
+                    let col_expr = col(column);
+                    use FilterPredicate::*;
+                    match predicate {
+                        IsEqualTo(value) => {
+                            let comp_expr = match value {
+                                Value::Column(column) => col(column),
+                                Value::Constant(constant) => {
+                                    schema.0
+                                        .get(column)
+                                        .map(|dtype| parse_constant_expr(constant.as_str(), dtype))
+                                        .ok_or(PoldaError::QueryError(format!("Column \"{}\" does not exist", {column})))??
+                                }
+                            };
+                            let expr = col_expr.eq(comp_expr);
+                            exprs.push(expr);
                         }
+
+                        _ => todo!()
                     }
-                    let frame = exprs
-                        .into_iter()
-                        .fold(frame, |frame, filter| {
-                            frame.filter(filter)
-                        });
-                    Ok(PolarsQuery { frame, schema })
+                }
+
+                let frame = inputs
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .frame;
+                exprs
+                    .into_iter()
+                    .fold(frame, |frame, filter| {
+                        frame.filter(filter)
+                    })
+            }
+
+            Node::Join {
+                id: _,
+                position: _,
+                left_input: _,
+                right_input: _,
+                join_type,
+                columns,
+                outputs: _
+            } => {
+                let mut inputs = inputs.into_iter();
+                let left = inputs.next().unwrap();
+                let right = inputs.next().unwrap();
+                let (left, right) = if let JoinType::Right = join_type {
+                    (right, left)
                 } else {
-                    Err(PoldaError::QueryError(format!("Node {} is missing an input table", id)))
+                    (left, right)
+                };
+                let mut left_exprs = vec![];
+                let mut right_exprs = vec![];
+                for column in columns.iter() {
+                    let JoinColumn { left, right } = column;
+                    left_exprs.push(col(&*left));
+                    right_exprs.push(col(&*right));
+                }
+                match join_type {
+                    JoinType::Inner => {
+                        left.frame.join(
+                            right.frame,
+                            left_exprs,
+                            right_exprs,
+                            PolarsJoinType::Inner
+                        )
+                    }
+                    JoinType::Left => {
+                        left.frame.join(
+                            right.frame,
+                            left_exprs,
+                            right_exprs,
+                            PolarsJoinType::Left
+                        )
+                    }
+                    JoinType::Right => {
+                        // Switch the frames and the expresions.
+                        right.frame.join(
+                            left.frame,
+                            right_exprs,
+                            left_exprs,
+                            PolarsJoinType::Left
+                        )
+                    }
+                    JoinType::Full => {
+                        left.frame.join(
+                            right.frame,
+                            left_exprs,
+                            right_exprs,
+                            PolarsJoinType::Outer
+                        )
+                    }
+                    JoinType::Cross => left.frame.cross_join(right.frame)
                 }
             }
 
@@ -161,99 +199,147 @@ impl PolarsQuery {
                 path,
                 outputs: _
             } => {
-                let frame = LazyCsvReader::new(path).finish()?;
-                let columns = get_csv_schema(&*path)?;
-                let query = PolarsQuery::new(frame, Arc::new(columns));
-                Ok(query)
+                LazyCsvReader::new(path).finish()?
             }
 
             Node::Select {
-                id,
+                id: _,
                 position: _,
                 input: _,
                 columns,
                 outputs: _
             } => {
-                if let Some(input) = inputs.pop() {
-                    // Create frame.
-                    let exprs = columns.iter().map(|column| {
-                        let mut expr = col(&*column.column);
-                        if !column.alias.is_empty() {
-                            expr = expr.alias(&*column.alias);
-                        }
-                        expr
-                    })
-                        .collect::<Vec<_>>();
-                    let frame = input.frame.select(&exprs);
-
-                    // Create columns.
-                    let mut schema: HashMap::<String, DataType> = HashMap::new();
-                    columns
-                        .iter()
-                        .for_each(|column| {
-                            if let Some(dtype) = input.schema.get(&column.column) {
-                                let name = if column.alias.is_empty() {
-                                    column.column.clone()
-                                } else {
-                                    column.alias.clone()
-                                };
-                                schema.insert(name, dtype.clone());
-                            } else {
-                                // TODO: Error: Column not found!
-                                todo!("Column not found");
-                            }
-                        });
-
-                    let query = PolarsQuery {
-                        frame,
-                        schema: Arc::new(schema)
+                let mut exprs = vec![];
+                for column in columns.iter() {
+                    let SelectColumn { column, alias } = column;
+                    let expr = if !alias.is_empty() {
+                        col(&*column).alias(&*alias)
+                    } else {
+                        col(&*column)
                     };
-                    Ok(query)
-                } else {
-                    Err(PoldaError::QueryError(format!("Node {} is missing an input table", id)))
+                    exprs.push(expr);
                 }
+                inputs
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .frame
+                    .select(&exprs)
             }
 
             Node::Sort {
-                id,
+                id: _,
                 position: _,
                 input: _,
                 sorters,
                 outputs: _
             } => {
-                if let Some(input) = inputs.pop() {
-                    let PolarsQuery { frame, schema } = input;
-                    let mut exprs = vec![];
-                    let mut reverses = vec![];
-                    for sorter in sorters.into_iter() {
-                        let Sorter { column, direction } = sorter;
-                        if column.is_empty() {
-                            continue;
-                        }
-                        if !schema.contains_key(column) {
-                            return Err(PoldaError::QueryError(format!("Column \"{}\" doesn't exist in the input table of node \"{}\"", column, id)))
-                        }
-                        let expr = col(&*column);
-                        exprs.push(expr);
-                        let reverse = if let SortDirection::Desc = direction {
-                            true
-                        } else {
-                            false
-                        };
-                        reverses.push(reverse);
-                    }
-                    let frame = frame.sort_by_exprs(exprs, reverses, true);
-                    Ok(PolarsQuery::new(frame, schema))
-                } else {
-                    Err(PoldaError::QueryError(format!("Node {} is missing an input table", id)))
+                let mut exprs = vec![];
+                let mut reverses = vec![];
+                for sorter in sorters.into_iter() {
+                    let Sorter { column, direction } = sorter;
+                    let expr = col(&*column);
+                    exprs.push(expr);
+                    let reverse = if let SortDirection::Desc = direction {
+                        true
+                    } else {
+                        false
+                    };
+                    reverses.push(reverse);
                 }
+                inputs
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .frame
+                    .sort_by_exprs(exprs, reverses, true)
             }
 
-            _ => todo!()
-        }
+            Node::Union {
+                id: _,
+                position: _,
+                primary_input: _,
+                secondary_input: _,
+                outputs: _
+            } => {
+                let mut inputs = inputs.into_iter();
+                let first = inputs.next().unwrap();
+                let second = inputs.next().unwrap();
+                concat([first.frame, second.frame], false, true)?
+            }
+        };
+
+        Ok(PolarsQuery::new(frame, schema))
     }
 
-    pub fn new(frame: LazyFrame, schema: Arc<Schema>) -> PolarsQuery {
+    pub fn new(frame: LazyFrame, schema: Schema) -> PolarsQuery {
         PolarsQuery { frame, schema }
+    }
+}
+
+pub fn parse_constant_expr(
+    constant: &str,
+    dtype: &DataType
+) -> Result<Expr, PoldaError> {
+    match dtype {
+        DataType::Boolean => {
+            constant.parse::<bool>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a Boolean", constant)))
+        }
+        DataType::Float32 => {
+            constant.parse::<f32>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a Float32", constant)))
+        }
+        DataType::Float64 => {
+            constant.parse::<f64>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a Float64", constant)))
+        }
+        DataType::Int8 => {
+            constant.parse::<i8>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a Int8", constant)))
+        }
+        DataType::Int16 => {
+            constant.parse::<i16>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a Int16", constant)))
+        }
+        DataType::Int32 => {
+            constant.parse::<i32>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a Int32", constant)))
+        }
+        DataType::Int64 => {
+            constant.parse::<i64>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a Int64", constant)))
+        }
+        DataType::UInt8 => {
+            constant.parse::<u8>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a UInt8", constant)))
+        }
+        DataType::UInt16 => {
+            constant.parse::<u16>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a UInt16", constant)))
+        }
+        DataType::UInt32 => {
+            constant.parse::<u32>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a UInt32", constant)))
+        }
+        DataType::UInt64 => {
+            constant.parse::<u64>()
+                .map(|constant| lit(constant))
+                .map_err(|_| PoldaError::ParseError(format!("Can't parse \"{}\" into a UInt64", constant)))
+        }
+        DataType::Utf8 => {
+            Ok(lit(constant))
+        }
+        _ => todo!()
     }
 }

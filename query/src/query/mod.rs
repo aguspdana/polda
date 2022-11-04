@@ -8,11 +8,12 @@ use crate::data_type::DataType;
 
 mod duck_db_query;
 mod polars_query;
+mod schema;
 mod types;
 
 pub use duck_db_query::DuckDbQuery;
 pub use polars_query::PolarsQuery;
-pub use types::Schema;
+pub use schema::Schema;
 pub use types::SqlQuery;
 
 use crate::error::PoldaError;
@@ -96,7 +97,7 @@ impl Query {
                 }
                 let query = PolarsQuery {
                     frame: IntoLazy::lazy(frame),
-                    schema: Arc::new(schema)
+                    schema: Schema(Arc::new(schema))
                 };
                 Ok(query)
             }

@@ -11,6 +11,8 @@ mod types;
 
 pub use node::Node;
 pub use operation::Operation;
+pub use operation::transform_batch;
+pub use operation::validate_sequence;
 pub use types::aggregate::Aggregate;
 pub use types::aggregate::AggregateComputation;
 pub use types::filter::Filter;
