@@ -1,3 +1,5 @@
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashSet;
 
 use super::Aggregate;
@@ -8,7 +10,8 @@ use super::Position;
 use super::SelectColumn;
 use super::Sorter;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum Node {
     Aggregate {
         id: String,

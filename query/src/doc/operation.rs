@@ -1,5 +1,7 @@
-use crate::error::PoldaError;
+use serde::Deserialize;
+use serde::Serialize;
 
+use crate::error::PoldaError;
 use super::Node;
 use super::InputName;
 use super::Position;
@@ -13,7 +15,7 @@ use super::SelectColumn;
 use super::SortDirection;
 use super::Sorter;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operation {
     // Doc operations:
     InsertNode {

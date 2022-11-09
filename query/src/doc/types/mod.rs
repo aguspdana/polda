@@ -1,28 +1,34 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 pub mod aggregate;
 pub mod filter;
 pub mod join;
 pub mod select;
 pub mod sort;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
     pub x: i32,
     pub y: i32
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub enum InputName {
-    Primary,
-    Secondary
-}
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct InputPort {
     pub id: String,
     pub name: InputName
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InputName {
+    Primary,
+    Secondary
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+#[serde(rename_all = "snake_case")]
 pub enum Value {
     Column(String),
     Constant(String)
