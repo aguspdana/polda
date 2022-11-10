@@ -1,4 +1,6 @@
 use polars::frame::DataFrame;
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -27,7 +29,7 @@ pub use types::InputPort;
 pub use types::Position;
 pub use types::Value;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Doc {
     nodes: HashMap<String, Node>,
     index: Vec<String>
