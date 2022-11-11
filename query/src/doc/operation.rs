@@ -2256,7 +2256,7 @@ impl Operation {
     }
 }
 
-pub fn transform_batch(batch: Vec<Operation>, preceded_by: &Vec<Operation>) -> Vec<Operation> {
+pub fn transform_batch(batch: Vec<Operation>, preceded_by: &[Operation]) -> Vec<Operation> {
     let mut transformed_batch: Vec<Option<Operation>> = Vec::with_capacity(batch.len());
 
     batch.iter()
