@@ -36,99 +36,32 @@ pub struct Doc {
 }
 
 impl Doc {
-    pub fn collect(&self, id: &String) -> Result<DataFrame, PoldaError> {
-        let mut queries: HashMap<String, Query> = HashMap::new();
-        let mut polars_queries: HashMap<String, Query> = HashMap::new();
-        let mut nodes_to_query = vec![id.clone()];
+    pub fn collect(&self, id: &String, limit: Option<usize>) -> Result<DataFrame, PoldaError> {
+        collect(&self.nodes, id, limit)
+    }
 
-        while let Some(id) = nodes_to_query.last().cloned() {
+    /// Get a node and it's dependecies.
+    pub fn extract_nodes(&self, id: String) -> Result<HashMap<String, Node>, PoldaError> {
+        let mut nodes = HashMap::new();
+        let mut ids = vec![id.clone()];
+
+        while let Some(id) = ids.pop() {
             if let Some(node) = self.nodes.get(&id) {
                 let inputs = node.inputs();
-                let connected_inputs = inputs
-                    .iter()
-                    .filter(|i| i.is_some())
-                    .map(|i| i.as_ref().unwrap())
-                    .collect::<Vec<_>>();
-
-                // Ensure the node has all the necessary inputs.
-                let dif = inputs.len() - connected_inputs.len();
-                if dif == 1 {
-                    return Err(PoldaError::QueryError(format!("Node {} is missing an input", id)));
-                } else if dif > 1 {
-                    return Err(PoldaError::QueryError(format!("Node {} is missing {} inputs", id, dif)));
-                }
-
-                // Ensure all inputs are in queries, otherwise push to
-                // nodes_to_query for now and build the query later.
-                let mut are_inputs_in_queries = true;
-                for input in connected_inputs.iter() {
-                    if !queries.contains_key(*input) {
-                        are_inputs_in_queries = false;
-                        nodes_to_query.push((*input).clone());
+                for input in inputs.iter() {
+                    if let Some(input) = input {
+                        ids.push(input.clone());
+                    } else {
+                        return Err(PoldaError::QueryError(format!("Node with id \"{}\" is missing an input", id)));
                     }
                 }
-
-                if !are_inputs_in_queries {
-                    continue;
-                }
-
-                // Check if the input queries have the same backend.
-                let mut same_backend = true;
-                if let Some(first_input) = connected_inputs.first() {
-                    if let Some(first_input_query) = queries.get(*first_input) {
-                        for input in connected_inputs[1..].iter() {
-                            let input_query = queries.get(*input).unwrap();
-                            if !first_input_query.same_backend(input_query) {
-                                same_backend = false;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                let input_queries: Vec<Query> = if !same_backend {
-                    // Input queries have different backends: Convert them into
-                    // polars queries.
-                    for input in connected_inputs.iter() {
-                        let input = *input;
-                        if !polars_queries.contains_key(input) {
-                            let query = queries
-                                .get(input)
-                                .unwrap()
-                                .clone()
-                                .polars()?;
-                            let query = Query::Polars(query);
-                            polars_queries.insert(input.clone(), query);
-                        }
-                    }
-
-                    connected_inputs
-                        .iter()
-                        .map(|input| {
-                            polars_queries.get(*input).unwrap().clone()
-                        })
-                        .collect()
-                } else {
-                    // Input queries have the same backend: Build the query.
-                    connected_inputs
-                        .iter()
-                        .map(|input| {
-                            queries.get(*input).unwrap().clone()
-                        })
-                        .collect()
-                };
-
-                let query = Query::from_node(node, input_queries)?;
-                queries.insert(id.clone(), query);
-                nodes_to_query.pop();
+                nodes.insert(id, node.clone());
             } else {
-                // Doc is broken: There's a node that contains an input that
-                // doesn't exist.
                 return Err(PoldaError::DocError(format!("Node with id \"{}\" doesn't exist", id)));
             }
         }
 
-        queries.remove(id).unwrap().collect()
+        Ok(nodes)
     }
 
     pub fn is_cycle(&self, from: &String, to: &String) -> Result<bool, PoldaError> {
@@ -1359,6 +1292,107 @@ impl Doc {
     }
 }
 
+pub fn collect(
+    nodes: &HashMap<String, Node>,
+    id: &String,
+    limit: Option<usize>
+) -> Result<DataFrame, PoldaError> {
+    let mut queries: HashMap<String, Query> = HashMap::new();
+    let mut polars_queries: HashMap<String, Query> = HashMap::new();
+    let mut nodes_to_query = vec![id.clone()];
+
+    while let Some(id) = nodes_to_query.last().cloned() {
+        if let Some(node) = nodes.get(&id) {
+            let inputs = node.inputs();
+            let connected_inputs = inputs
+                .iter()
+                .filter(|i| i.is_some())
+                .map(|i| i.as_ref().unwrap())
+                .collect::<Vec<_>>();
+
+            // Ensure the node has all the necessary inputs.
+            let dif = inputs.len() - connected_inputs.len();
+            if dif == 1 {
+                return Err(PoldaError::QueryError(format!("Node {} is missing an input", id)));
+            } else if dif > 1 {
+                return Err(PoldaError::QueryError(format!("Node {} is missing {} inputs", id, dif)));
+            }
+
+            // Ensure all inputs are in queries, otherwise push to
+            // nodes_to_query for now and build the query later.
+            let mut are_inputs_in_queries = true;
+            for input in connected_inputs.iter() {
+                if !queries.contains_key(*input) {
+                    are_inputs_in_queries = false;
+                    nodes_to_query.push((*input).clone());
+                }
+            }
+
+            if !are_inputs_in_queries {
+                continue;
+            }
+
+            // Check if the input queries have the same backend.
+            let mut same_backend = true;
+            if let Some(first_input) = connected_inputs.first() {
+                if let Some(first_input_query) = queries.get(*first_input) {
+                    for input in connected_inputs[1..].iter() {
+                        let input_query = queries.get(*input).unwrap();
+                        if !first_input_query.same_backend(input_query) {
+                            same_backend = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let input_queries: Vec<Query> = if !same_backend {
+                // Input queries have different backends: Convert them into
+                // polars queries.
+                for input in connected_inputs.iter() {
+                    let input = *input;
+                    if !polars_queries.contains_key(input) {
+                        let query = queries
+                            .get(input)
+                            .unwrap()
+                            .clone()
+                            .polars()?;
+                        let query = Query::Polars(query);
+                        polars_queries.insert(input.clone(), query);
+                    }
+                }
+
+                connected_inputs
+                    .iter()
+                    .map(|input| {
+                        polars_queries.get(*input).unwrap().clone()
+                    })
+                    .collect()
+            } else {
+                // Input queries have the same backend: Build the query.
+                connected_inputs
+                    .iter()
+                    .map(|input| {
+                        queries.get(*input).unwrap().clone()
+                    })
+                    .collect()
+            };
+
+            let query = Query::from_node(node, input_queries)?;
+            queries.insert(id.clone(), query);
+            nodes_to_query.pop();
+        } else {
+            // Doc is broken: There's a node that contains an input that
+            // doesn't exist.
+            return Err(PoldaError::DocError(format!("Node with id \"{}\" doesn't exist", id)));
+        }
+    }
+
+    let df = queries.remove(id).unwrap().collect()?;
+
+    Ok(df.head(limit))
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -1489,7 +1523,7 @@ mod tests {
         ];
         doc.execute_operations(ops).unwrap();
         println!("{:#?}", doc);
-        let df = doc.collect(&String::from("d")).unwrap();
+        let df = doc.collect(&String::from("d"), None).unwrap();
         println!("{:#?}", df);
     }
 }
