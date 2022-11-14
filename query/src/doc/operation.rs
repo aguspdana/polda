@@ -17,6 +17,7 @@ use super::Sorter;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum Operation {
     // Doc operations:
     InsertNode {
