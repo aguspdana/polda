@@ -1,3 +1,5 @@
+pub use polars::frame::DataFrame;
+
 pub mod column;
 pub mod data_type;
 pub mod doc;

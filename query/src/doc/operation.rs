@@ -16,6 +16,7 @@ use super::SortDirection;
 use super::Sorter;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum Operation {
     // Doc operations:
     InsertNode {
