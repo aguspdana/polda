@@ -41,7 +41,7 @@ impl Doc {
     }
 
     /// Get a node and it's dependecies.
-    pub fn extract_nodes(&self, id: String) -> Result<HashMap<String, Node>, PoldaError> {
+    pub fn extract_nodes(&self, id: &String) -> Result<HashMap<String, Node>, PoldaError> {
         let mut nodes = HashMap::new();
         let mut ids = vec![id.clone()];
 
