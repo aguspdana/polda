@@ -1,0 +1,115 @@
+{
+    "type": "open_doc",
+    "id": 1,
+    "path": ""
+}
+
+
+{
+    "type": "update_doc",
+    "id": 2,
+    "version": 0,
+    "operations": [
+        {
+            "type": "insert_node",
+            "node": {
+                "type": "load_csv",
+                "id": "node_a1",
+                "position": {
+                    "x": 0,
+                    "y": 0
+                },
+                "path": "../query/data/supermarket_sales.csv",
+                "outputs": []
+            }
+        },
+        {
+            "type": "insert_index",
+            "id": "node_a1",
+            "index": 0
+        },
+        {
+            "type": "insert_node",
+            "node": {
+                "type": "filter",
+                "id": "node_a2",
+                "position": {
+                    "x": 0,
+                    "y": 0
+                },
+                "input": null,
+                "filters": [
+                    {
+                        "column": "Customer type",
+                        "predicate": {
+                            "type": "is_equal_to",
+                            "comparator": {
+                                "type": "constant",
+                                "value": "Member"
+                            }
+                        }
+                    }
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "type": "insert_index",
+            "id": "node_a2",
+            "index": 1
+        },
+        {
+            "type": "set_input",
+            "id": "node_a2",
+            "name": "primary",
+            "input": "node_a1"
+        },
+        {
+            "type": "insert_node",
+            "node": {
+                "type": "select",
+                "id": "node_a3",
+                "position": {
+                    "x": 0,
+                    "y": 0
+                },
+                "input": null,
+                "columns": [
+                    {
+                        "column": "Date",
+                        "alias": ""
+                    },
+                    {
+                        "column": "Product line",
+                        "alias": ""
+                    }
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "type": "insert_index",
+            "id": "node_a3",
+            "index": 2
+        },
+        {
+            "type": "set_input",
+            "id": "node_a3",
+            "name": "primary",
+            "input": "node_a2"
+        }
+    ]
+}
+
+
+{
+    "type": "get_doc",
+    "id": 3
+}
+
+
+{
+    "type": "query",
+    "id": 4,
+    "node_id": "node_a3"
+}

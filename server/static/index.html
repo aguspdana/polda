@@ -79,7 +79,7 @@
       var socket = null
 
       function log(msg, type = 'status') {
-        $log.innerHTML += `<p class="msg msg--${type}">${msg}</p>`
+        $log.innerHTML += `<pre class="msg msg--${type}">${msg}</pre>`
         $log.scrollTop += 1000
       }
 
@@ -89,7 +89,7 @@
         const { location } = window
 
         const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
-        const wsUri = `${proto}://${location.host}/ws/abc-def`
+        const wsUri = `${proto}://${location.host}/ws`
 
         log('Connecting...')
         socket = new WebSocket(wsUri)
@@ -100,7 +100,7 @@
         }
 
         socket.onmessage = (ev) => {
-          log('Received: ' + ev.data, 'message')
+          log('Received: ' + JSON.stringify(JSON.parse(ev.data), null, 4), 'message')
         }
 
         socket.onclose = () => {
@@ -150,7 +150,7 @@
 
         const text = $input.value
 
-        log('Sending: ' + text)
+        log('Sending: ' + JSON.stringify(JSON.parse(text), null, 4))
         socket.send(text)
 
         $input.value = ''
