@@ -1,4 +1,6 @@
 use polars::prelude::PolarsError;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum PoldaError {
@@ -8,6 +10,21 @@ pub enum PoldaError {
     QueryError(String),
     OperationError(String),
 }
+
+impl fmt::Display for PoldaError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use PoldaError::*;
+        match self {
+            DocError(msg) => write!(f, "DocError: {}", msg),
+            ParseError(msg) => write!(f, "ParseError: {}", msg),
+            PolarsError(e) => write!(f, "PolarsError: {}", e),
+            QueryError(msg) => write!(f, "QueryError: {}", msg),
+            OperationError(msg) => write!(f, "OperationError: {}", msg)
+        }
+    }
+}
+
+impl Error for PoldaError {}
 
 impl From<PolarsError> for PoldaError {
     fn from(error: PolarsError) -> PoldaError {
