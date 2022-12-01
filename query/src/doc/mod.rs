@@ -64,6 +64,8 @@ impl Doc {
         Ok(nodes)
     }
 
+    /// Check whether a connection from `from` to `to` create a cycle or not.
+    /// Return `Err` if there's any dependency that doesn't exist in the doc.
     pub fn is_cycle(&self, from: &String, to: &String) -> Result<bool, PoldaError> {
         let mut ids = vec![from];
         let mut checked = HashSet::new();
@@ -90,28 +92,15 @@ impl Doc {
         Ok(false)
     }
 
+    /// Execute a batch of operations and return the undo operations.
     pub fn execute_operations(
         &mut self,
         operations: Vec<Operation>
     ) -> Result<Vec<Operation>, PoldaError> {
-        // Get "set input" operations.
-        let mut inputs = HashSet::new();
-        operations
-            .iter()
-            .for_each(|op| {
-                if let Operation::SetInput { id, name, input: Some(_) } = op {
-                    inputs.insert(InputPort {
-                        id: id.clone(),
-                        name: name.clone()
-                    });
-                }
-            });
-
-        // Execute operations.
         let mut undo_ops = vec![];
         for op in operations.into_iter() {
             match self.execute_operation(op) {
-                Ok(undo) => undo_ops.push(undo),
+                Ok(Some(undo)) => undo_ops.push(undo),
                 Err(e) => {
                     undo_ops
                         .into_iter()
@@ -121,132 +110,19 @@ impl Doc {
                         });
                     return Err(e);
                 }
+                _ => ()
             }
         }
-
-        // Fix broken inputs and cycles.
-        let mut fix_ops = vec![];
-        inputs
-            .into_iter()
-            .for_each(|InputPort { id, name }| {
-                if let Some(node) = self.nodes.get(&id) {
-                    use Node::*;
-                    let input = match node {
-                        Aggregate {
-                            id: _,
-                            position: _,
-                            input,
-                            aggregates: _,
-                            outputs: _
-                        } => {
-                            if let InputName::Primary = name {
-                                input
-                            } else {
-                                &None
-                            }
-                        }
-
-                        Filter {
-                            id: _,
-                            position: _,
-                            input,
-                            filters: _,
-                            outputs: _
-                        } => {
-                            if let InputName::Primary = name {
-                                input
-                            } else {
-                                &None
-                            }
-                        }
-
-                        Join {
-                            id: _,
-                            position: _,
-                            left_input,
-                            right_input,
-                            join_type: _,
-                            columns: _,
-                            outputs: _
-                        } => {
-                            if let InputName::Primary = name {
-                                left_input
-                            } else {
-                                right_input
-                            }
-                        }
-
-                        Select {
-                            id: _,
-                            position: _,
-                            input,
-                            columns: _,
-                            outputs: _
-                        } => {
-                            if let InputName::Primary = name {
-                                input
-                            } else {
-                                &None
-                            }
-                        }
-
-                        Sort {
-                            id: _,
-                            position: _,
-                            input,
-                            sorters: _,
-                            outputs: _
-                        } => {
-                            if let InputName::Primary = name {
-                                input
-                            } else {
-                                &None
-                            }
-                        }
-
-                        Union {
-                            id: _,
-                            position: _,
-                            primary_input,
-                            secondary_input,
-                            outputs: _
-                        } => {
-                            if let InputName::Primary = name {
-                                primary_input
-                            } else {
-                                secondary_input
-                            }
-                        }
-
-                        _ => &None
-                    };
-
-                    if let Some(input) = input {
-                        if let Ok(true) | Err(_) = self.is_cycle(input, &id) {
-                            let op = Operation::SetInput {
-                                id,
-                                name,
-                                input: None
-                            };
-                            fix_ops.push(op);
-                        }
-                    }
-                }
-            });
-
-        fix_ops
-            .iter()
-            .for_each(|op| {
-                self.execute_operation(op.clone()).ok();
-            });
-
-        Ok(fix_ops)
+        Ok(undo_ops)
     }
 
+    /// Execute an operation.  `SetInput` operation may fail if the input has
+    /// been deleted or the new connection create a cycle.  In this case the
+    /// execution returns `None`.  Other failures return `Err`.
     pub fn execute_operation(
         &mut self,
         operation: Operation
-    ) -> Result<Operation, PoldaError> {
+    ) -> Result<Option<Operation>, PoldaError> {
         use Operation::*;
 
         match operation {
@@ -266,7 +142,7 @@ impl Doc {
                     id: node.id().clone()
                 };
                 self.nodes.insert(node.id().clone(), node);
-                Ok(undo)
+                Ok(Some(undo))
             }
 
             DeleteNode { id } => {
@@ -282,7 +158,7 @@ impl Doc {
                         return Err(PoldaError::OperationError(format!("Can't delete a node that is still connected")));
                     }
                     let undo = Operation::InsertNode { node };
-                    Ok(undo)
+                    Ok(Some(undo))
                 } else {
                     Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
                 }
@@ -297,7 +173,7 @@ impl Doc {
                     id: id.clone()
                 };
                 self.index.splice(index..index, [id]);
-                Ok(undo)
+                Ok(Some(undo))
             }
 
             DeleteIndex { id, index } => {
@@ -313,10 +189,21 @@ impl Doc {
                 };
                 let end = index + 1;
                 self.index.splice(index..end, []);
-                Ok(undo)
+                Ok(Some(undo))
             }
 
             SetInput { id, name, input: new_input } => {
+                // Return None if the input node doesn't exist or the new
+                // connection create a cycle.
+                if let Some(new_input) = new_input.as_ref() {
+                    if !self.nodes.contains_key(new_input) {
+                        return Ok(None);
+                    }
+                    if self.is_cycle(&id, new_input)? {
+                        return Ok(None);
+                    }
+                }
+
                 // When the input node doesn't exist (maybe it has been deleted
                 // by other client) we set the input field regardless.  We fix
                 // "input node doesn't exist" and "operation create a cycle"
@@ -347,7 +234,7 @@ impl Doc {
                                     input: input.clone()
                                 };
                                 *input = new_input.clone();
-                                Ok(undo)
+                                Ok(Some(undo))
                             } else {
                                 Err(PoldaError::OperationError(format!("Aggregate node doesn't take a secondary input")))
                             }
@@ -371,7 +258,7 @@ impl Doc {
                                     input: input.clone()
                                 };
                                 *input = new_input.clone();
-                                Ok(undo)
+                                Ok(Some(undo))
                             } else {
                                 Err(PoldaError::OperationError(format!("Filter node doesn't take a secondary input")))
                             }
@@ -397,7 +284,7 @@ impl Doc {
                                     input: left_input.clone()
                                 };
                                 *left_input = new_input.clone();
-                                Ok(undo)
+                                Ok(Some(undo))
                             } else {
                                 if &new_input != right_input && left_input != right_input {
                                     insert_output = new_input.clone();
@@ -409,7 +296,7 @@ impl Doc {
                                     input: right_input.clone()
                                 };
                                 *right_input = new_input.clone();
-                                Ok(undo)
+                                Ok(Some(undo))
                             }
                         }
 
@@ -438,7 +325,7 @@ impl Doc {
                                     input: input.clone()
                                 };
                                 *input = new_input.clone();
-                                Ok(undo)
+                                Ok(Some(undo))
                             } else {
                                 Err(PoldaError::OperationError(format!("Select node doesn't take a secondary input")))
                             }
@@ -462,7 +349,7 @@ impl Doc {
                                     input: input.clone()
                                 };
                                 *input = new_input.clone();
-                                Ok(undo)
+                                Ok(Some(undo))
                             } else {
                                 Err(PoldaError::OperationError(format!("Sort node doesn't take a secondary input")))
                             }
@@ -486,7 +373,7 @@ impl Doc {
                                     input: primary_input.clone()
                                 };
                                 *primary_input = new_input.clone();
-                                Ok(undo)
+                                Ok(Some(undo))
                             } else {
                                 if &new_input != secondary_input && primary_input != secondary_input {
                                     insert_output = new_input.clone();
@@ -498,7 +385,7 @@ impl Doc {
                                     input: secondary_input.clone()
                                 };
                                 *secondary_input = new_input.clone();
-                                Ok(undo)
+                                Ok(Some(undo))
                             }
                         }
                     }
@@ -540,7 +427,7 @@ impl Doc {
                                 position: position.clone()
                             };
                             *position = new_position;
-                            Ok(undo)
+                            Ok(Some(undo))
                         }
 
                         Filter {
@@ -555,7 +442,7 @@ impl Doc {
                                 position: position.clone()
                             };
                             *position = new_position;
-                            Ok(undo)
+                            Ok(Some(undo))
                         }
 
                         Join {
@@ -572,7 +459,7 @@ impl Doc {
                                 position: position.clone()
                             };
                             *position = new_position;
-                            Ok(undo)
+                            Ok(Some(undo))
                         }
 
                         LoadCsv {
@@ -586,7 +473,7 @@ impl Doc {
                                 position: position.clone()
                             };
                             *position = new_position;
-                            Ok(undo)
+                            Ok(Some(undo))
                         }
 
                         Select {
@@ -601,7 +488,7 @@ impl Doc {
                                 position: position.clone()
                             };
                             *position = new_position;
-                            Ok(undo)
+                            Ok(Some(undo))
                         }
 
                         Sort {
@@ -616,7 +503,7 @@ impl Doc {
                                 position: position.clone()
                             };
                             *position = new_position;
-                            Ok(undo)
+                            Ok(Some(undo))
                         }
 
                         Union {
@@ -631,7 +518,7 @@ impl Doc {
                                 position: position.clone()
                             };
                             *position = new_position;
-                            Ok(undo)
+                            Ok(Some(undo))
                         }
                     }
                 } else {
@@ -654,7 +541,7 @@ impl Doc {
                                 id,
                                 index
                             };
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("Can't insert a new aggregate at index {}. Possible index (0 - {})", index, aggregates.len())))
                         }
@@ -683,7 +570,7 @@ impl Doc {
                             };
                             let end = index + 1;
                             aggregates.splice(index..end, []);
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no aggregate at index {}. Possible index (0 - {})", index, aggregates.len())))
                         }
@@ -711,7 +598,7 @@ impl Doc {
                                 computation: aggregates[index].computation.clone()
                             };
                             aggregates[index].computation = computation;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no aggregate at index {}. Possible index (0 - {})", index, aggregates.len())))
                         }
@@ -739,7 +626,7 @@ impl Doc {
                                 column: aggregates[index].column.clone()
                             };
                             aggregates[index].column = column;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no aggregate at index {}. Possible index (0 - {})", index, aggregates.len())))
                         }
@@ -767,7 +654,7 @@ impl Doc {
                                 alias: aggregates[index].alias.clone()
                             };
                             aggregates[index].alias = alias;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no aggregate at index {}. Possible index (0 - {})", index, aggregates.len())))
                         }
@@ -794,7 +681,7 @@ impl Doc {
                                 id,
                                 index
                             };
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("Can't insert a new filter at index {}. Possible index (0 - {})", index, filters.len())))
                         }
@@ -823,7 +710,7 @@ impl Doc {
                             };
                             let end = index + 1;
                             filters.splice(index..end, []);
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no filter at index {}. Possible index (0 - {})", index, filters.len())))
                         }
@@ -851,7 +738,7 @@ impl Doc {
                                 column: filters[index].column.clone()
                             };
                             filters[index].column = column;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no filter at index {}. Possible index (0 - {})", index, filters.len())))
                         }
@@ -879,7 +766,7 @@ impl Doc {
                                 predicate: filters[index].predicate.clone()
                             };
                             filters[index].predicate = predicate;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no filter at index {}. Possible index (0 - {})", index, filters.len())))
                         }
@@ -904,7 +791,7 @@ impl Doc {
                             path: path.clone()
                         };
                         *path = new_path;
-                        Ok(undo)
+                        Ok(Some(undo))
                     } else {
                         Err(PoldaError::OperationError(format!("Can't set csv path to a non-load-csv node")))
                     }
@@ -929,7 +816,7 @@ impl Doc {
                             join_type: join_type.clone()
                         };
                         *join_type = new_join_type;
-                        Ok(undo)
+                        Ok(Some(undo))
                     } else {
                         Err(PoldaError::OperationError(format!("Can't set join type to a non-join node")))
                     }
@@ -955,7 +842,7 @@ impl Doc {
                                 id,
                                 index
                             };
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("Can't insert a new join column at index {}. Possible index (0 - {})", index, columns.len())))
                         }
@@ -986,7 +873,7 @@ impl Doc {
                             };
                             let end = index + 1;
                             columns.splice(index..end, []);
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no join column at index {}. Possible index (0 - {})", index, columns.len())))
                         }
@@ -1016,7 +903,7 @@ impl Doc {
                                 column: columns[index].left.clone()
                             };
                             columns[index].left = column;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no join column at index {}. Possible index (0 - {})", index, columns.len())))
                         }
@@ -1046,7 +933,7 @@ impl Doc {
                                 column: columns[index].right.clone()
                             };
                             columns[index].right = column;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no join column at index {}. Possible index (0 - {})", index, columns.len())))
                         }
@@ -1073,7 +960,7 @@ impl Doc {
                                 id,
                                 index
                             };
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("Can't insert a new select column at index {}. Possible index (0 - {})", index, columns.len())))
                         }
@@ -1102,7 +989,7 @@ impl Doc {
                             };
                             let end = index + 1;
                             columns.splice(index..end, []);
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no select column at index {}. Possible index (0 - {})", index, columns.len())))
                         }
@@ -1130,7 +1017,7 @@ impl Doc {
                                 column: columns[index].column.clone()
                             };
                             columns[index].column = column;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no select column at index {}. Possible index (0 - {})", index, columns.len())))
                         }
@@ -1158,7 +1045,7 @@ impl Doc {
                                 alias: columns[index].alias.clone()
                             };
                             columns[index].alias = alias;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no select alias at index {}. Possible index (0 - {})", index, columns.len())))
                         }
@@ -1185,7 +1072,7 @@ impl Doc {
                                 id,
                                 index
                             };
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("Can't insert a new sorter at index {}. Possible index (0 - {})", index, sorters.len())))
                         }
@@ -1214,7 +1101,7 @@ impl Doc {
                             };
                             let end = index + 1;
                             sorters.splice(index..end, []);
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no sorter at index {}. Possible index (0 - {})", index, sorters.len())))
                         }
@@ -1242,7 +1129,7 @@ impl Doc {
                                 column: sorters[index].column.clone()
                             };
                             sorters[index].column = column;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no sorter at index {}. Possible index (0 - {})", index, sorters.len())))
                         }
@@ -1270,7 +1157,7 @@ impl Doc {
                                 direction: sorters[index].direction.clone()
                             };
                             sorters[index].direction = direction;
-                            Ok(undo)
+                            Ok(Some(undo))
                         } else {
                             Err(PoldaError::OperationError(format!("There's no sorter at index {}. Possible index (0 - {})", index, sorters.len())))
                         }
