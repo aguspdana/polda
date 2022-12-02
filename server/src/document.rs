@@ -173,13 +173,9 @@ impl Handler<UpdateDocMsg> for Document {
             return;
         }
         let preceding_ops = &self.operations[version-self.deleted_ops..];
-        let transformed_ops = transform_batch(operations, preceding_ops);
+        let mut transformed_ops = transform_batch(operations, preceding_ops);
         match self.doc.execute_operations(transformed_ops.clone()) {
-            Ok(mut fix_ops) => {
-                let mut ops = transformed_ops;
-                let mut ops_clone = ops.clone();
-                self.operations.append(&mut ops_clone);
-                ops.append(&mut fix_ops);
+            Ok(_undo_ops) => {
                 self.clients
                     .iter()
                     .for_each(|(id, client)| {
@@ -191,10 +187,11 @@ impl Handler<UpdateDocMsg> for Document {
                         let msg = RpcResponseMsg::Update {
                             id: res_id,
                             version: self.deleted_ops + self.operations.len(),
-                            operations: ops.clone()
+                            operations: transformed_ops.clone()
                         };
                         client.do_send(msg);
                     });
+                self.operations.append(&mut transformed_ops);
             }
             Err(e) => {
                 if let Some(client) = self.clients.get(&client_id) {
