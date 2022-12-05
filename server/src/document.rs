@@ -186,7 +186,9 @@ impl Handler<UpdateDocMsg> for Document {
                         };
                         let msg = RpcResponseMsg::Update {
                             id: res_id,
-                            version: self.deleted_ops + self.operations.len(),
+                            version: self.deleted_ops
+                                + self.operations.len()
+                                + transformed_ops.len(),
                             operations: transformed_ops.clone()
                         };
                         client.do_send(msg);
