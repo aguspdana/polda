@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "ot",
     "query",
     "server"
 ]
