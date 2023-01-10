@@ -1,0 +1,9 @@
+.ghost {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  border-radius: 8px;
+  transform: translate(-50%, -24px);
+  background: linear-gradient(180deg, var(--color-base-700) 0%, rgba(48, 36, 63, 0) 100%);
+  backdrop-filter: blur(8px);
+}

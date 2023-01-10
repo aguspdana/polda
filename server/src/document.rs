@@ -20,7 +20,7 @@ use crate::client::RpcResponseMsg;
 use crate::executor::Executor;
 use crate::executor::Job;
 use crate::executor::JobMsg;
-use crate::executor::JobType;
+use crate::executor::JobKind;
 
 pub struct Document {
     path: String,
@@ -184,7 +184,7 @@ impl Handler<UpdateDocMsg> for Document {
                         } else {
                             None
                         };
-                        let msg = RpcResponseMsg::Update {
+                        let msg = RpcResponseMsg::UpdateDoc {
                             id: res_id,
                             version: self.deleted_ops
                                 + self.operations.len()
@@ -227,24 +227,57 @@ impl Handler<QueryMsg> for Document {
         _ctx: &mut Context<Document>
     ) {
         let QueryMsg { client, client_id, req_id, node_id } = msg;
-        if let Ok(nodes) = self.doc.extract_nodes(&node_id) {
-            let msg = JobMsg(Arc::new(Job {
-                client,
-                client_id,
-                job_id: req_id,
-                job_type: JobType::Query,
-                nodes,
-                node_id
-            }));
-            <Executor as SystemService>::from_registry()
-                .do_send(msg);
-        } else {
-            let msg = RpcResponseMsg::Error {
-                id: Some(req_id),
-                code: RpcErrorCode::InvalidRequest,
-                msg: String::from("Node doesn't exist")
-            };
-            client.do_send(msg);
+        match self.doc.extract_nodes(&node_id) {
+            Ok(nodes) => {
+                let msg = JobMsg(Arc::new(Job {
+                    client,
+                    client_id,
+                    job_id: req_id,
+                    job_kind: JobKind::Query {
+                        nodes,
+                        node_id
+                    },
+                }));
+                <Executor as SystemService>::from_registry()
+                    .do_send(msg);
+            }
+            Err(e) => {
+                let msg = RpcResponseMsg::Error {
+                    id: Some(req_id),
+                    code: RpcErrorCode::InvalidRequest,
+                    msg: e.to_string()
+                };
+                client.do_send(msg);
+            }
         }
+    }
+}
+
+#[derive(MessageTrait)]
+#[rtype(result = "()")]
+pub struct ReadFileMsg {
+    pub client: Addr<Client>,
+    pub client_id: String,
+    pub req_id: usize,
+    pub filename: String
+}
+
+impl Handler<ReadFileMsg> for Document {
+    type Result = ();
+
+    fn handle(
+        &mut self,
+        msg: ReadFileMsg,
+        _ctx: &mut Context<Document>
+    ) {
+        let ReadFileMsg { client, client_id, req_id, filename } = msg;
+        let msg = JobMsg(Arc::new(Job {
+            client,
+            client_id,
+            job_id: req_id,
+            job_kind: JobKind::ReadFile { filename }
+        }));
+        <Executor as SystemService>::from_registry()
+            .do_send(msg);
     }
 }

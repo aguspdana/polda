@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  app:
+    build:
+      context: .
+    image: polda
+    ports:
+      - 8080:8080
+    volumes:
+      - ../query/data:/app/data

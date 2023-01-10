@@ -1,0 +1,64 @@
+.container  {
+  height: 100%;
+  width: 100%;
+  padding: 0 8px;
+  user-select: text;
+  overflow: auto;
+}
+
+.container table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.container th,
+.container td {
+  position: relative;
+  box-sizing: content-box;
+  height: 32px;
+  padding: 0 8px;
+  border: solid 1px var(--color-base-700);
+  white-space: nowrap;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.container th::after,
+.container td::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  background: var(--color-base-700);
+  background: linear-gradient(90deg, rgba(28, 18, 41, 0) 0%, var(--color-base-800) 100%);
+  pointer-events: none;
+}
+
+.container th {
+  border-top: 0;
+  text-align: start;
+}
+
+.container tr th:first-child,
+.container tr td:first-child {
+  border-left: 0;
+}
+
+.container tr th:last-child,
+.container tr td:last-child {
+  border-right: 0;
+}
+
+.cell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cell svg {
+  flex-shrink: 0;
+  color: var(--color-base-400);
+}

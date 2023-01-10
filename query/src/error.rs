@@ -9,6 +9,7 @@ pub enum PoldaError {
     PolarsError(PolarsError),
     QueryError(String),
     OperationError(String),
+    InternalError(String)
 }
 
 impl fmt::Display for PoldaError {
@@ -16,6 +17,7 @@ impl fmt::Display for PoldaError {
         use PoldaError::*;
         match self {
             DocError(msg) => write!(f, "DocError: {}", msg),
+            InternalError(msg) => write!(f, "InternalError: {}", msg),
             ParseError(msg) => write!(f, "ParseError: {}", msg),
             PolarsError(e) => write!(f, "PolarsError: {}", e),
             QueryError(msg) => write!(f, "QueryError: {}", msg),

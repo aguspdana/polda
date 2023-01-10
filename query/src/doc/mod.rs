@@ -1,3 +1,5 @@
+// TODO: We need to store execution context like project directory and remote
+// sources.
 use polars::frame::DataFrame;
 use serde::Deserialize;
 use serde::Serialize;
@@ -17,7 +19,8 @@ pub use operation::transform_batch;
 pub use operation::validate_sequence;
 pub use types::aggregate::Aggregate;
 pub use types::aggregate::AggregateComputation;
-pub use types::filter::Filter;
+pub use types::case::Case;
+pub use types::compute::ComputeOperation;
 pub use types::filter::FilterPredicate;
 pub use types::join::JoinType;
 pub use types::join::JoinColumn;
@@ -240,11 +243,119 @@ impl Doc {
                             }
                         }
 
+                        Bins {
+                            id: _,
+                            position: _,
+                            input,
+                            name: _,
+                            column: _,
+                            lower_bound: _,
+                            upper_bound: _,
+                            count: _,
+                            outputs: _
+                        } => {
+                            if let InputName::Primary = &name {
+                                if &new_input != input {
+                                    insert_output = new_input.clone();
+                                    remove_output = input.clone();
+                                }
+                                let undo = Operation::SetInput {
+                                    id: id.clone(),
+                                    name,
+                                    input: input.clone()
+                                };
+                                *input = new_input.clone();
+                                Ok(Some(undo))
+                            } else {
+                                Err(PoldaError::OperationError(format!("Bins node doesn't take a secondary input")))
+                            }
+                        }
+
+                        Case {
+                            id: _,
+                            position: _,
+                            input,
+                            name: _,
+                            data_type: _,
+                            cases: _,
+                            default: _,
+                            outputs: _
+                        } => {
+                            if let InputName::Primary = &name {
+                                if &new_input != input {
+                                    insert_output = new_input.clone();
+                                    remove_output = input.clone();
+                                }
+                                let undo = Operation::SetInput {
+                                    id: id.clone(),
+                                    name,
+                                    input: input.clone()
+                                };
+                                *input = new_input.clone();
+                                Ok(Some(undo))
+                            } else {
+                                Err(PoldaError::OperationError(format!("Case node doesn't take a secondary input")))
+                            }
+                        }
+
+                        Cast {
+                            id: _,
+                            position: _,
+                            input,
+                            name: _,
+                            column: _,
+                            data_type: _,
+                            outputs: _
+                        } => {
+                            if let InputName::Primary = &name {
+                                if &new_input != input {
+                                    insert_output = new_input.clone();
+                                    remove_output = input.clone();
+                                }
+                                let undo = Operation::SetInput {
+                                    id: id.clone(),
+                                    name,
+                                    input: input.clone()
+                                };
+                                *input = new_input.clone();
+                                Ok(Some(undo))
+                            } else {
+                                Err(PoldaError::OperationError(format!("Cast node doesn't take a secondary input")))
+                            }
+                        }
+
+                        Compute {
+                            id: _,
+                            position: _,
+                            input,
+                            name: _,
+                            column: _,
+                            operation: _,
+                            outputs: _
+                        } => {
+                            if let InputName::Primary = &name {
+                                if &new_input != input {
+                                    insert_output = new_input.clone();
+                                    remove_output = input.clone();
+                                }
+                                let undo = Operation::SetInput {
+                                    id: id.clone(),
+                                    name,
+                                    input: input.clone()
+                                };
+                                *input = new_input.clone();
+                                Ok(Some(undo))
+                            } else {
+                                Err(PoldaError::OperationError(format!("Compute node doesn't take a secondary input")))
+                            }
+                        }
+
                         Filter {
                             id: _,
                             position: _,
                             input,
-                            filters: _,
+                            column: _,
+                            predicate: _,
                             outputs: _
                         } => {
                             if let InputName::Primary = &name {
@@ -303,7 +414,7 @@ impl Doc {
                         LoadCsv {
                             id: _,
                             position: _,
-                            path: _,
+                            filename: _,
                             outputs: _
                         } => Err(PoldaError::OperationError(format!("Load Csv node doesn't take an input"))),
 
@@ -414,6 +525,17 @@ impl Doc {
                 if let Some(node) = self.nodes.get_mut(&id) {
                     use Node::*;
 
+                    macro_rules! set_position {
+                        ($id:expr, $position:ident, $new_position:expr) => {{
+                            let undo = Operation::SetPosition {
+                                id: $id,
+                                position: $position.clone()
+                            };
+                            *$position = $new_position;
+                            Ok(Some(undo))
+                        }};
+                    }
+
                     match node {
                         Aggregate {
                             id: _,
@@ -421,29 +543,59 @@ impl Doc {
                             input: _,
                             aggregates: _,
                             outputs: _
-                        } => {
-                            let undo = Operation::SetPosition {
-                                id,
-                                position: position.clone()
-                            };
-                            *position = new_position;
-                            Ok(Some(undo))
-                        }
+                        } => set_position!(id, position, new_position),
+
+                        Bins {
+                            id: _,
+                            position,
+                            input: _,
+                            name: _,
+                            column: _,
+                            lower_bound: _,
+                            upper_bound: _,
+                            count: _,
+                            outputs: _
+                        } => set_position!(id, position, new_position),
+
+                        Case {
+                            id: _,
+                            position,
+                            input: _,
+                            name: _,
+                            data_type: _,
+                            cases: _,
+                            default: _,
+                            outputs: _
+                        } => set_position!(id, position, new_position),
+
+                        Cast {
+                            id: _,
+                            position,
+                            input: _,
+                            name: _,
+                            column: _,
+                            data_type: _,
+                            outputs: _
+                        } => set_position!(id, position, new_position),
+
+                        Compute {
+                            id: _,
+                            position,
+                            input: _,
+                            name: _,
+                            column: _,
+                            operation: _,
+                            outputs: _
+                        } => set_position!(id, position, new_position),
 
                         Filter {
                             id: _,
                             position,
                             input: _,
-                            filters: _,
+                            column: _,
+                            predicate: _,
                             outputs: _
-                        } => {
-                            let undo = Operation::SetPosition {
-                                id,
-                                position: position.clone()
-                            };
-                            *position = new_position;
-                            Ok(Some(undo))
-                        }
+                        } => set_position!(id, position, new_position),
 
                         Join {
                             id: _,
@@ -453,19 +605,12 @@ impl Doc {
                             join_type: _,
                             columns: _,
                             outputs: _
-                        } => {
-                            let undo = Operation::SetPosition {
-                                id,
-                                position: position.clone()
-                            };
-                            *position = new_position;
-                            Ok(Some(undo))
-                        }
+                        } => set_position!(id, position, new_position),
 
                         LoadCsv {
                             id: _,
                             position,
-                            path: _,
+                            filename: _,
                             outputs: _
                         } => {
                             let undo = Operation::SetPosition {
@@ -482,14 +627,7 @@ impl Doc {
                             input: _,
                             columns: _,
                             outputs: _
-                        } => {
-                            let undo = Operation::SetPosition {
-                                id,
-                                position: position.clone()
-                            };
-                            *position = new_position;
-                            Ok(Some(undo))
-                        }
+                        } => set_position!(id, position, new_position),
 
                         Sort {
                             id: _,
@@ -497,14 +635,7 @@ impl Doc {
                             input: _,
                             sorters: _,
                             outputs: _
-                        } => {
-                            let undo = Operation::SetPosition {
-                                id,
-                                position: position.clone()
-                            };
-                            *position = new_position;
-                            Ok(Some(undo))
-                        }
+                        } => set_position!(id, position, new_position),
 
                         Union {
                             id: _,
@@ -512,14 +643,7 @@ impl Doc {
                             primary_input: _,
                             secondary_input: _,
                             outputs: _
-                        } => {
-                            let undo = Operation::SetPosition {
-                                id,
-                                position: position.clone()
-                            };
-                            *position = new_position;
-                            Ok(Some(undo))
-                        }
+                        } => set_position!(id, position, new_position),
                     }
                 } else {
                     Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
@@ -666,82 +790,496 @@ impl Doc {
                 }
             }
 
-            InsertFilter { id, index, filter } => {
+            // Bins node operations
+
+            SetBinsName { id, name: new_name } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
-                    if let Node::Filter {
+                    if let Node::Bins {
                         id: _,
                         position: _,
                         input: _,
-                        filters,
+                        name,
+                        column: _,
+                        lower_bound: _,
+                        upper_bound: _,
+                        count: _,
                         outputs: _
                     } = node {
-                        if index <= filters.len() {
-                            filters.splice(index..index, [filter]);
-                            let undo = Operation::DeleteFilter {
+                        let undo = SetBinsName { id, name: name.clone() };
+                        *name = new_name;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set bins name to a non-bins node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetBinsColumn { id, column: new_column } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Bins {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        column,
+                        lower_bound: _,
+                        upper_bound: _,
+                        count: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetBinsColumn { id, column: column.clone() };
+                        *column = new_column;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set bins column to a non-bins node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetBinsLowerBound { id, lower_bound: new_lower_bound } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Bins {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        column: _,
+                        lower_bound,
+                        upper_bound: _,
+                        count: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetBinsLowerBound { id, lower_bound: *lower_bound };
+                        *lower_bound = new_lower_bound;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set bins lower bound to a non-bins node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetBinsUpperBound { id, upper_bound: new_upper_bound } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Bins {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        column: _,
+                        lower_bound: _,
+                        upper_bound,
+                        count: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetBinsUpperBound { id, upper_bound: *upper_bound };
+                        *upper_bound = new_upper_bound;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set bins upper bound to a non-bins node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetBinsCount { id, count: new_count } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Bins {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        column: _,
+                        lower_bound: _,
+                        upper_bound: _,
+                        count,
+                        outputs: _
+                    } = node {
+                        let undo = SetBinsCount { id, count: *count };
+                        *count = new_count;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set bins count to a non-bins node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            // Case node operations
+            SetCaseName { id, name: new_name } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Case {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name,
+                        data_type: _,
+                        cases: _,
+                        default: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetCaseName { id, name: name.clone() };
+                        *name = new_name;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set case name to a non-case node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetCaseDataType { id, data_type: new_data_type } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Case {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        data_type,
+                        cases: _,
+                        default: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetCaseDataType {
+                            id,
+                            data_type: data_type.clone()
+                        };
+                        *data_type = new_data_type;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set case data type to a non-case node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            InsertCase { id, index, case } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Case {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        data_type: _,
+                        cases,
+                        default: _,
+                        outputs: _
+                    } = node {
+                        if index <= cases.len() {
+                            cases.splice(index..index, [case]);
+                            let undo = Operation::DeleteCase {
                                 id,
                                 index
                             };
                             Ok(Some(undo))
                         } else {
-                            Err(PoldaError::OperationError(format!("Can't insert a new filter at index {}. Possible index (0 - {})", index, filters.len())))
+                            Err(PoldaError::OperationError(format!("Can't insert a new case at index {}. Possible index (0 - {})", index, cases.len())))
                         }
                     } else {
-                        Err(PoldaError::OperationError(format!("Can't insert a filter into a non-filter node")))
+                        Err(PoldaError::OperationError(format!("Can't insert a case to a non-case node")))
                     }
                 } else {
                     Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
                 }
             }
 
-            DeleteFilter { id, index } => {
+            DeleteCase { id, index } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
-                    if let Node::Filter {
+                    if let Node::Case {
                         id: _,
                         position: _,
                         input: _,
-                        filters,
+                        name: _,
+                        data_type: _,
+                        cases,
+                        default: _,
                         outputs: _
                     } = node {
-                        if index < filters.len() {
-                            let undo = InsertFilter {
+                        if index < cases.len() {
+                            let undo = InsertCase {
                                 id,
                                 index,
-                                filter: filters[index].clone()
+                                case: cases[index].clone()
                             };
                             let end = index + 1;
-                            filters.splice(index..end, []);
+                            cases.splice(index..end, []);
                             Ok(Some(undo))
                         } else {
-                            Err(PoldaError::OperationError(format!("There's no filter at index {}. Possible index (0 - {})", index, filters.len())))
+                            Err(PoldaError::OperationError(format!("Can't delete case at index {}. Possible index (0 - {})", index, cases.len())))
                         }
                     } else {
-                        Err(PoldaError::OperationError(format!("Can't delete a filter from a non-filter node")))
+                        Err(PoldaError::OperationError(format!("Can't delete case on a non-case node")))
                     }
                 } else {
                     Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
                 }
             }
 
-            SetFilterColumn { id, index, column } => {
+            SetCaseColumn { id, index, column: new_column } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Case {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        data_type: _,
+                        cases,
+                        default: _,
+                        outputs: _
+                    } = node {
+                        if index < cases.len() {
+                            let undo = SetCaseColumn {
+                                id,
+                                index,
+                                column: cases[index].column.clone()
+                            };
+                            cases[index].column = new_column;
+                            Ok(Some(undo))
+                        } else {
+                            Err(PoldaError::OperationError(format!("Can't set case column at index {}. Possible index (0 - {})", index, cases.len())))
+                        }
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set case column on a non-case node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetCaseValue { id, index, value: new_value } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Case {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        data_type: _,
+                        cases,
+                        default: _,
+                        outputs: _
+                    } = node {
+                        if index < cases.len() {
+                            let undo = SetCaseValue {
+                                id,
+                                index,
+                                value: cases[index].value.clone()
+                            };
+                            cases[index].value = new_value;
+                            Ok(Some(undo))
+                        } else {
+                            Err(PoldaError::OperationError(format!("Can't set case value at index {}. Possible index (0 - {})", index, cases.len())))
+                        }
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set case value on a non-case node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetCaseDefault { id, default: new_default } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Case {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        data_type: _,
+                        cases: _,
+                        default,
+                        outputs: _
+                    } = node {
+                        let undo = SetCaseDefault {
+                            id,
+                            default: default.clone()
+                        };
+                        *default = new_default;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set case default to a non-case node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            // Cast node operations
+            SetCastName { id, name: new_name } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Cast {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name,
+                        column: _,
+                        data_type: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetCastName {
+                            id,
+                            name: name.clone()
+                        };
+                        *name = new_name;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set cast name default to a non-cast node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetCastColumn { id, column: new_column } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Cast {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        column,
+                        data_type: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetCastColumn {
+                            id,
+                            column: column.clone()
+                        };
+                        *column = new_column;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set cast column default to a non-cast node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetCastDataType { id, data_type: new_data_type } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Cast {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        column: _,
+                        data_type,
+                        outputs: _
+                    } = node {
+                        let undo = SetCastDataType {
+                            id,
+                            data_type: data_type.clone()
+                        };
+                        *data_type = new_data_type;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set cast data type default to a non-cast node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            // Compute node operations
+            SetComputeName { id, name: new_name } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Compute {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name,
+                        column: _,
+                        operation: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetComputeName {
+                            id,
+                            name: name.clone()
+                        };
+                        *name = new_name;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set compute name to a non-compute node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetComputeColumn { id, column: new_column } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Compute {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        column,
+                        operation: _,
+                        outputs: _
+                    } = node {
+                        let undo = SetComputeColumn {
+                            id,
+                            column: column.clone()
+                        };
+                        *column = new_column;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set compute column to a non-compute node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetComputeOperation { id, operation: new_operation } => {
+                if let Some(node) = self.nodes.get_mut(&id) {
+                    if let Node::Compute {
+                        id: _,
+                        position: _,
+                        input: _,
+                        name: _,
+                        column: _,
+                        operation,
+                        outputs: _
+                    } = node {
+                        let undo = SetComputeOperation {
+                            id,
+                            operation: operation.clone()
+                        };
+                        *operation = new_operation;
+                        Ok(Some(undo))
+                    } else {
+                        Err(PoldaError::OperationError(format!("Can't set compute operation to a non-compute node")))
+                    }
+                } else {
+                    Err(PoldaError::OperationError(format!("Node with id {} doesn't exist", id)))
+                }
+            }
+
+            SetFilterColumn { id, column: new_column } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
                     if let Node::Filter {
                         id: _,
                         position: _,
                         input: _,
-                        filters,
+                        column,
+                        predicate: _,
                         outputs: _
                     } = node {
-                        if index < filters.len() {
-                            let undo = SetFilterColumn {
-                                id,
-                                index,
-                                column: filters[index].column.clone()
-                            };
-                            filters[index].column = column;
-                            Ok(Some(undo))
-                        } else {
-                            Err(PoldaError::OperationError(format!("There's no filter at index {}. Possible index (0 - {})", index, filters.len())))
-                        }
+                        let undo = SetFilterColumn {
+                            id,
+                            column: column.clone()
+                        };
+                        *column = new_column;
+                        Ok(Some(undo))
                     } else {
                         Err(PoldaError::OperationError(format!("Can't set filter column to a non-filter node")))
                     }
@@ -750,26 +1288,22 @@ impl Doc {
                 }
             }
 
-            SetFilterPredicate { id, index, predicate } => {
+            SetFilterPredicate { id, predicate: new_predicate } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
                     if let Node::Filter {
                         id: _,
                         position: _,
                         input: _,
-                        filters,
+                        column: _,
+                        predicate,
                         outputs: _
                     } = node {
-                        if index < filters.len() {
-                            let undo = SetFilterPredicate {
-                                id,
-                                index,
-                                predicate: filters[index].predicate.clone()
-                            };
-                            filters[index].predicate = predicate;
-                            Ok(Some(undo))
-                        } else {
-                            Err(PoldaError::OperationError(format!("There's no filter at index {}. Possible index (0 - {})", index, filters.len())))
-                        }
+                        let undo = SetFilterPredicate {
+                            id,
+                            predicate: predicate.clone()
+                        };
+                        *predicate = new_predicate;
+                        Ok(Some(undo))
                     } else {
                         Err(PoldaError::OperationError(format!("Can't set filter predicate to a non-filter node")))
                     }
@@ -778,19 +1312,19 @@ impl Doc {
                 }
             }
 
-            SetCsvPath { id, path: new_path } => {
+            SetLoadCsvFilename { id, filename: new_path } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
                     if let Node::LoadCsv {
                         id: _,
                         position: _,
-                        path,
+                        filename,
                         outputs: _
                     } = node {
-                        let undo = SetCsvPath {
+                        let undo = SetLoadCsvFilename {
                             id,
-                            path: path.clone()
+                            filename: filename.clone()
                         };
-                        *path = new_path;
+                        *filename = new_path;
                         Ok(Some(undo))
                     } else {
                         Err(PoldaError::OperationError(format!("Can't set csv path to a non-load-csv node")))
@@ -825,7 +1359,7 @@ impl Doc {
                 }
             }
 
-            InsertJoin { id, index, join_column } => {
+            InsertJoinColumn { id, index, join_column } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
                     if let Node::Join {
                         id: _,
@@ -838,7 +1372,7 @@ impl Doc {
                     } = node {
                         if index <= columns.len() {
                             columns.splice(index..index, [join_column]);
-                            let undo = Operation::DeleteJoin {
+                            let undo = Operation::DeleteJoinColumn {
                                 id,
                                 index
                             };
@@ -854,7 +1388,7 @@ impl Doc {
                 }
             }
 
-            DeleteJoin { id, index } => {
+            DeleteJoinColumn { id, index } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
                     if let Node::Join {
                         id: _,
@@ -866,7 +1400,7 @@ impl Doc {
                         outputs: _
                     } = node {
                         if index < columns.len() {
-                            let undo = InsertJoin {
+                            let undo = InsertJoinColumn {
                                 id,
                                 index,
                                 join_column: columns[index].clone()
@@ -885,7 +1419,7 @@ impl Doc {
                 }
             }
 
-            SetLeftJoinColumn { id, index, column } => {
+            SetJoinColumnLeft { id, index, column } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
                     if let Node::Join {
                         id: _,
@@ -897,7 +1431,7 @@ impl Doc {
                         outputs: _
                     } = node {
                         if index < columns.len() {
-                            let undo = SetLeftJoinColumn {
+                            let undo = SetJoinColumnLeft {
                                 id,
                                 index,
                                 column: columns[index].left.clone()
@@ -915,7 +1449,7 @@ impl Doc {
                 }
             }
 
-            SetRightJoinColumn { id, index, column } => {
+            SetJoinColumnRight { id, index, column } => {
                 if let Some(node) = self.nodes.get_mut(&id) {
                     if let Node::Join {
                         id: _,
@@ -927,7 +1461,7 @@ impl Doc {
                         outputs: _
                     } = node {
                         if index < columns.len() {
-                            let undo = SetRightJoinColumn {
+                            let undo = SetJoinColumnRight {
                                 id,
                                 index,
                                 column: columns[index].right.clone()
@@ -1293,10 +1827,10 @@ mod tests {
                 node: Node::LoadCsv {
                     id: "a".to_string(),
                     position: Position {
-                        x: 0,
-                        y: 0
+                        x: 0.0,
+                        y: 0.0
                     },
-                    path: "data/supermarket_sales.csv".to_string(),
+                    filename: "data/supermarket_sales.csv".to_string(),
                     outputs: HashSet::new()
                 }
             },
@@ -1308,8 +1842,8 @@ mod tests {
                 node: Node::Select {
                     id: "b".to_string(),
                     position: Position {
-                        x: 0,
-                        y: 0
+                        x: 0.0,
+                        y: 0.0
                     },
                     input: None,
                     columns: vec![
@@ -1338,8 +1872,8 @@ mod tests {
                 node: Node::Aggregate {
                     id: "c".to_string(),
                     position: Position {
-                        x: 0,
-                        y: 0
+                        x: 0.0,
+                        y: 0.0
                     },
                     input: None,
                     aggregates: vec![
@@ -1385,8 +1919,8 @@ mod tests {
                 node: Node::Sort {
                     id: "d".to_string(),
                     position: Position {
-                        x: 0,
-                        y: 0
+                        x: 0.0,
+                        y: 0.0
                     },
                     input: None,
                     sorters: vec![

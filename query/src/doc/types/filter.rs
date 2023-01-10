@@ -4,13 +4,7 @@ use serde::Serialize;
 use super::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Filter {
-    pub column: String,
-    pub predicate: FilterPredicate
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "comparator")]
+#[serde(tag = "type", content = "param")]
 #[serde(rename_all = "snake_case")]
 pub enum FilterPredicate {
     IsEqualTo(Value),
@@ -20,5 +14,8 @@ pub enum FilterPredicate {
     IsGreaterThan(Value),
     IsGreaterThanEqual(Value),
     IsNull,
-    IsNotNull
+    IsNotNull,
+    And(Value),
+    Or(Value),
+    Xor(Value)
 }

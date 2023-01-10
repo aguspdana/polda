@@ -1,6 +1,8 @@
 [workspace]
 
 members = [
+    "derive_ot",
+    "doc",
     "ot",
     "query",
     "server"

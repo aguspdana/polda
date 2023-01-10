@@ -1,19 +1,22 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::data_type::DataType;
 use crate::error::PoldaError;
 use super::Node;
 use super::InputName;
 use super::Position;
 use super::Aggregate;
 use super::AggregateComputation;
-use super::Filter;
 use super::FilterPredicate;
 use super::JoinColumn;
 use super::JoinType;
 use super::SelectColumn;
 use super::SortDirection;
 use super::Sorter;
+use super::Value;
+use super::types::case::Case;
+use super::types::compute::ComputeOperation;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -72,31 +75,117 @@ pub enum Operation {
         alias: String
     },
 
-    // Filter node operations
-    InsertFilter {
+    // Bins node operations
+    SetBinsName {
+        id: String,
+        name: String
+    },
+
+    SetBinsColumn {
+        id: String,
+        column: String
+    },
+
+    SetBinsLowerBound {
+        id: String,
+        lower_bound: f64
+    },
+
+    SetBinsUpperBound {
+        id: String,
+        upper_bound: f64
+    },
+
+    SetBinsCount {
+        id: String,
+        count: usize
+    },
+
+    // Case node operations
+    SetCaseName {
+        id: String,
+        name: String
+    },
+
+    SetCaseDataType {
+        id: String,
+        data_type: DataType
+    },
+
+    InsertCase {
         id: String,
         index: usize,
-        filter: Filter
+        case: Case
     },
-    DeleteFilter {
+
+    DeleteCase {
         id: String,
         index: usize
     },
-    SetFilterColumn {
+
+    SetCaseColumn {
         id: String,
         index: usize,
         column: String
     },
-    SetFilterPredicate {
+
+    SetCaseValue {
         id: String,
         index: usize,
+        value: Value
+    },
+
+    SetCaseDefault {
+        id: String,
+        default: Value
+    },
+
+    // Cast node operations
+    SetCastName {
+        id: String,
+        name: String
+    },
+
+    SetCastColumn {
+        id: String,
+        column: String
+    },
+
+    SetCastDataType {
+        id: String,
+        data_type: DataType
+    },
+
+    // Compute node operations
+    SetComputeName {
+        id: String,
+        name: String
+    },
+
+    SetComputeColumn {
+        id: String,
+        column: String
+    },
+
+    SetComputeOperation {
+        id: String,
+        operation: ComputeOperation
+    },
+
+    // Filter node operations
+    SetFilterColumn {
+        id: String,
+        column: String
+    },
+    SetFilterPredicate {
+        id: String,
         predicate: FilterPredicate
     },
 
     // LoadCsv node operations:
-    SetCsvPath {
+    SetLoadCsvFilename {
         id: String,
-        path: String
+        filename: String
     },
 
     // Join node operations:
@@ -104,21 +193,21 @@ pub enum Operation {
         id: String,
         join_type: JoinType
     },
-    InsertJoin {
+    InsertJoinColumn {
         id: String,
         index: usize,
         join_column: JoinColumn
     },
-    DeleteJoin {
+    DeleteJoinColumn {
         id: String,
         index: usize
     },
-    SetLeftJoinColumn {
+    SetJoinColumnLeft {
         id: String,
         index: usize,
         column: String
     },
-    SetRightJoinColumn {
+    SetJoinColumnRight {
         id: String,
         index: usize,
         column: String
@@ -203,6 +292,8 @@ impl Operation {
                 position: _
             } => id,
 
+            // Aggregate node operations
+
             InsertAggregate {
                 id,
                 index: _,
@@ -232,61 +323,154 @@ impl Operation {
                 alias: _
             } => id,
 
-            InsertFilter {
+            // Bins node operations
+
+            SetBinsName {
                 id,
-                index: _,
-                filter: _
+                name: _
             } => id,
 
-            DeleteFilter {
+            SetBinsColumn {
+                id,
+                column: _
+            } => id,
+
+            SetBinsLowerBound {
+                id,
+                lower_bound: _
+            } => id,
+
+            SetBinsUpperBound {
+                id,
+                upper_bound: _
+            } => id,
+
+            SetBinsCount {
+                id,
+                count: _
+            } => id,
+
+            // Case node operations
+            SetCaseName {
+                id,
+                name: _
+            } => id,
+
+            SetCaseDataType {
+                id,
+                data_type: _
+            } => id,
+
+            InsertCase {
+                id,
+                index: _,
+                case: _
+            } => id,
+
+            DeleteCase {
                 id,
                 index: _
             } => id,
 
-            SetFilterColumn {
+            SetCaseColumn {
                 id,
                 index: _,
                 column: _
             } => id,
 
-            SetFilterPredicate {
+            SetCaseValue {
                 id,
                 index: _,
+                value: _
+            } => id,
+
+            SetCaseDefault {
+                id,
+                default: _
+            } => id,
+
+            // Cast node operations
+            SetCastName {
+                id,
+                name: _
+            } => id,
+
+            SetCastColumn {
+                id,
+                column: _
+            } => id,
+
+            SetCastDataType {
+                id,
+                data_type: _
+            } => id,
+
+            // Compute node operations
+            SetComputeName {
+                id,
+                name: _
+            } => id,
+
+            SetComputeColumn {
+                id,
+                column: _
+            } => id,
+
+            SetComputeOperation {
+                id,
+                operation: _
+            } => id,
+
+            // Filter node operations
+
+            SetFilterColumn {
+                id,
+                column: _
+            } => id,
+
+            SetFilterPredicate {
+                id,
                 predicate: _
             } => id,
 
-            SetCsvPath {
+            // LoadCsv node operations
+
+            SetLoadCsvFilename {
                 id,
-                path: _
+                filename: _
             } => id,
+
+            // Join node operations
 
             SetJoinType {
                 id,
                 join_type: _
             } => id,
 
-            InsertJoin {
+            InsertJoinColumn {
                 id,
                 index: _,
                 join_column: _
             } => id,
 
-            DeleteJoin {
+            DeleteJoinColumn {
                 id,
                 index: _
             } => id,
 
-            SetLeftJoinColumn {
+            SetJoinColumnLeft {
                 id,
                 index: _,
                 column: _
             } => id,
 
-            SetRightJoinColumn {
+            SetJoinColumnRight {
                 id,
                 index: _,
                 column: _
             } => id,
+
+            // Select node operations
 
             InsertSelect {
                 id,
@@ -310,6 +494,8 @@ impl Operation {
                 index: _,
                 alias: _
             } => id,
+
+            // Sort node operations
 
             InsertSorter {
                 id,
@@ -382,28 +568,108 @@ impl Operation {
 
             (
                 InsertNode { node: _ },
-                InsertFilter { id, index, filter }
-            ) => InsertFilter { id, index, filter },
+                SetBinsName { id, name }
+            ) => SetBinsName { id, name },
 
             (
                 InsertNode { node: _ },
-                DeleteFilter { id, index }
-            ) => DeleteFilter { id, index },
+                SetBinsColumn { id, column }
+            ) => SetBinsColumn { id, column },
 
             (
                 InsertNode { node: _ },
-                SetFilterColumn { id, index, column }
-            ) => SetFilterColumn { id, index, column },
+                SetBinsLowerBound { id, lower_bound }
+            ) => SetBinsLowerBound { id, lower_bound },
 
             (
                 InsertNode { node: _ },
-                SetFilterPredicate { id, index, predicate }
-            ) => SetFilterPredicate { id, index, predicate },
+                SetBinsUpperBound { id, upper_bound }
+            ) => SetBinsUpperBound { id, upper_bound },
 
             (
                 InsertNode { node: _ },
-                SetCsvPath { id, path }
-            ) => SetCsvPath { id, path },
+                SetBinsCount { id, count }
+            ) => SetBinsCount { id, count },
+
+            (
+                InsertNode { node: _ },
+                SetCaseName { id, name }
+            ) => SetBinsName { id, name },
+
+            (
+                InsertNode { node: _ },
+                SetCaseDataType { id, data_type }
+            ) => SetCaseDataType { id, data_type },
+
+            (
+                InsertNode { node: _ },
+                InsertCase { id, index, case }
+            ) => InsertCase { id, index, case },
+
+            (
+                InsertNode { node: _ },
+                DeleteCase { id, index }
+            ) => DeleteCase { id, index },
+
+            (
+                InsertNode { node: _ },
+                SetCaseColumn { id, index, column }
+            ) => SetCaseColumn { id, index, column },
+
+            (
+                InsertNode { node: _ },
+                SetCaseValue { id, index, value }
+            ) => SetCaseValue { id, index, value },
+
+            (
+                InsertNode { node: _ },
+                SetCaseDefault { id, default }
+            ) => SetCaseDefault { id, default },
+
+            (
+                InsertNode { node: _ },
+                SetCastName { id, name }
+            ) => SetCastName { id, name },
+
+            (
+                InsertNode { node: _ },
+                SetCastColumn { id, column }
+            ) => SetCastColumn { id, column },
+
+            (
+                InsertNode { node: _ },
+                SetCastDataType { id, data_type }
+            ) => SetCastDataType { id, data_type },
+
+            (
+                InsertNode { node: _ },
+                SetComputeName { id, name }
+            ) => SetComputeName { id, name },
+
+            (
+                InsertNode { node: _ },
+                SetComputeColumn { id, column }
+            ) => SetComputeColumn { id, column },
+
+            (
+                InsertNode { node: _ },
+                SetComputeOperation { id, operation }
+            ) => SetComputeOperation { id, operation },
+
+            (
+                InsertNode { node: _ },
+                SetFilterColumn { id, column }
+            ) => SetFilterColumn { id, column },
+
+            (
+                InsertNode { node: _ },
+                SetFilterPredicate { id, predicate }
+            ) => SetFilterPredicate { id, predicate },
+
+            (
+                InsertNode { node: _ },
+                SetLoadCsvFilename { id, filename }
+            ) => SetLoadCsvFilename { id, filename },
 
             (
                 InsertNode { node: _ },
@@ -412,23 +678,23 @@ impl Operation {
 
             (
                 InsertNode { node: _ },
-                InsertJoin { id, index, join_column }
-            ) => InsertJoin { id, index, join_column },
+                InsertJoinColumn { id, index, join_column }
+            ) => InsertJoinColumn { id, index, join_column },
 
             (
                 InsertNode { node: _ },
-                DeleteJoin { id, index }
-            ) => DeleteJoin { id, index },
+                DeleteJoinColumn { id, index }
+            ) => DeleteJoinColumn { id, index },
 
             (
                 InsertNode { node: _ },
-                SetLeftJoinColumn { id, index, column }
-            ) => SetLeftJoinColumn { id, index, column },
+                SetJoinColumnLeft { id, index, column }
+            ) => SetJoinColumnLeft { id, index, column },
 
             (
                 InsertNode { node: _ },
-                SetRightJoinColumn { id, index, column }
-            ) => SetRightJoinColumn { id, index, column },
+                SetJoinColumnRight { id, index, column }
+            ) => SetJoinColumnRight { id, index, column },
 
             (
                 InsertNode { node: _ },
@@ -506,44 +772,44 @@ impl Operation {
             ) => SetAggregateAlias { id, index: *mapper_index, alias },
 
             (
-                InsertFilter { id: _, index: mapper_index, filter: _ },
-                InsertFilter { id, index: _, filter }
-            ) => InsertFilter { id, index: *mapper_index, filter },
+                InsertCase { id: _, index: mapper_index, case: _ },
+                InsertCase { id, index: _, case }
+            ) => InsertCase { id, index: *mapper_index, case },
 
             (
-                InsertFilter { id: _, index: mapper_index, filter: _ },
-                DeleteFilter { id, index: _ }
-            ) => DeleteFilter { id, index: *mapper_index },
+                InsertCase { id: _, index: mapper_index, case: _ },
+                DeleteCase { id, index: _ }
+            ) => DeleteCase { id, index: *mapper_index },
 
             (
-                InsertFilter { id: _, index: mapper_index, filter: _ },
-                SetFilterColumn { id, index: _, column }
-            ) => SetFilterColumn { id, index: *mapper_index, column },
+                InsertCase { id: _, index: mapper_index, case: _ },
+                SetCaseColumn { id, index: _, column }
+            ) => SetCaseColumn { id, index: *mapper_index, column },
 
             (
-                InsertFilter { id: _, index: mapper_index, filter: _ },
-                SetFilterPredicate { id, index: _, predicate }
-            ) => SetFilterPredicate { id, index: *mapper_index, predicate },
+                InsertCase { id: _, index: mapper_index, case: _ },
+                SetCaseValue { id, index: _, value }
+            ) => SetCaseValue { id, index: *mapper_index, value },
 
             (
-                InsertJoin { id: _, index: mapper_index, join_column: _ },
-                InsertJoin { id, index: _, join_column }
-            ) => InsertJoin { id, index: *mapper_index, join_column },
+                InsertJoinColumn { id: _, index: mapper_index, join_column: _ },
+                InsertJoinColumn { id, index: _, join_column }
+            ) => InsertJoinColumn { id, index: *mapper_index, join_column },
 
             (
-                InsertJoin { id: _, index: mapper_index, join_column: _ },
-                DeleteJoin { id, index: _ }
-            ) => DeleteJoin { id, index: *mapper_index },
+                InsertJoinColumn { id: _, index: mapper_index, join_column: _ },
+                DeleteJoinColumn { id, index: _ }
+            ) => DeleteJoinColumn { id, index: *mapper_index },
 
             (
-                InsertJoin { id: _, index: mapper_index, join_column: _ },
-                SetLeftJoinColumn { id, index: _, column }
-            ) => SetLeftJoinColumn { id, index: *mapper_index, column },
+                InsertJoinColumn { id: _, index: mapper_index, join_column: _ },
+                SetJoinColumnLeft { id, index: _, column }
+            ) => SetJoinColumnLeft { id, index: *mapper_index, column },
 
             (
-                InsertJoin { id: _, index: mapper_index, join_column: _ },
-                SetRightJoinColumn { id, index: _, column }
-            ) => SetRightJoinColumn { id, index: *mapper_index, column },
+                InsertJoinColumn { id: _, index: mapper_index, join_column: _ },
+                SetJoinColumnRight { id, index: _, column }
+            ) => SetJoinColumnRight { id, index: *mapper_index, column },
 
             (
                 InsertSelect { id: _, index: mapper_index, column: _ },
@@ -683,56 +949,232 @@ impl Operation {
 
             (
                 InsertNode { node: pre_node },
-                InsertFilter { id, index, filter }
+                SetBinsName { id, name }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(InsertFilter { id, index, filter })
+                    Some(SetBinsName { id, name })
                 }
             }
 
             (
                 InsertNode { node: pre_node },
-                DeleteFilter { id, index }
+                SetBinsColumn { id, column }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(DeleteFilter { id, index })
+                    Some(SetBinsColumn { id, column })
                 }
             }
 
             (
                 InsertNode { node: pre_node },
-                SetFilterColumn { id, index, column }
+                SetBinsLowerBound { id, lower_bound }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(SetFilterColumn { id, index, column })
+                    Some(SetBinsLowerBound { id, lower_bound })
                 }
             }
 
             (
                 InsertNode { node: pre_node },
-                SetFilterPredicate { id, index, predicate }
+                SetBinsUpperBound { id, upper_bound }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(SetFilterPredicate { id, index, predicate })
+                    Some(SetBinsUpperBound { id, upper_bound })
                 }
             }
 
             (
                 InsertNode { node: pre_node },
-                SetCsvPath { id, path }
+                SetBinsCount { id, count }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(SetCsvPath { id, path })
+                    Some(SetBinsCount { id, count })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetCaseName { id, name }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetCaseName { id, name })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetCaseDataType { id, data_type }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetCaseDataType { id, data_type })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                InsertCase { id, index, case }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(InsertCase { id, index, case })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                DeleteCase { id, index }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(DeleteCase { id, index })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetCaseColumn { id, index, column }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetCaseColumn { id, index, column })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetCaseValue { id, index, value }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetCaseValue { id, index, value })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetCaseDefault { id, default }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetCaseDefault { id, default })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetCastName { id, name }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetCastName { id, name })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetCastColumn { id, column }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetCastColumn { id, column })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetCastDataType { id, data_type }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetCastDataType { id, data_type })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetComputeName { id, name }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetComputeName { id, name })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetComputeColumn { id, column }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetComputeColumn { id, column })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetComputeOperation { id, operation }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetComputeOperation { id, operation })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetFilterColumn { id, column }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetFilterColumn { id, column })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetFilterPredicate { id, predicate }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetFilterPredicate { id, predicate })
+                }
+            }
+
+            (
+                InsertNode { node: pre_node },
+                SetLoadCsvFilename { id, filename }
+            ) => {
+                if &id == pre_node.id() {
+                    None
+                } else {
+                    Some(SetLoadCsvFilename { id, filename })
                 }
             }
 
@@ -749,45 +1191,45 @@ impl Operation {
 
             (
                 InsertNode { node: pre_node },
-                InsertJoin { id, index, join_column }
+                InsertJoinColumn { id, index, join_column }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(InsertJoin { id, index, join_column })
+                    Some(InsertJoinColumn { id, index, join_column })
                 }
             }
 
             (
                 InsertNode { node: pre_node },
-                DeleteJoin { id, index }
+                DeleteJoinColumn { id, index }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(DeleteJoin { id, index })
+                    Some(DeleteJoinColumn { id, index })
                 }
             }
 
             (
                 InsertNode { node: pre_node },
-                SetLeftJoinColumn { id, index, column }
+                SetJoinColumnLeft { id, index, column }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(SetLeftJoinColumn { id, index, column })
+                    Some(SetJoinColumnLeft { id, index, column })
                 }
             }
 
             (
                 InsertNode { node: pre_node },
-                SetRightJoinColumn { id, index, column }
+                SetJoinColumnRight { id, index, column }
             ) => {
                 if &id == pre_node.id() {
                     None
                 } else {
-                    Some(SetRightJoinColumn { id, index, column })
+                    Some(SetJoinColumnRight { id, index, column })
                 }
             }
 
@@ -1048,8 +1490,8 @@ impl Operation {
             }
 
             (
-                InsertFilter { id: pre_id, index: pre_index, filter: _ },
-                InsertFilter { id, mut index, filter }
+                InsertCase { id: pre_id, index: pre_index, case: _ },
+                InsertCase { id, mut index, case }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1058,12 +1500,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(InsertFilter { id, index, filter })
+                Some(InsertCase { id, index, case })
             }
 
             (
-                InsertFilter { id: pre_id, index: pre_index, filter: _ },
-                DeleteFilter { id, mut index }
+                InsertCase { id: pre_id, index: pre_index, case: _ },
+                DeleteCase { id, mut index }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1072,12 +1514,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(DeleteFilter { id, index })
+                Some(DeleteCase { id, index })
             }
 
             (
-                InsertFilter { id: pre_id, index: pre_index, filter: _ },
-                SetFilterColumn { id, mut index, column }
+                InsertCase { id: pre_id, index: pre_index, case: _ },
+                SetCaseColumn { id, mut index, column }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1086,12 +1528,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(SetFilterColumn { id, index, column })
+                Some(SetCaseColumn { id, index, column })
             }
 
             (
-                InsertFilter { id: pre_id, index: pre_index, filter: _ },
-                SetFilterPredicate { id, mut index, predicate }
+                InsertCase { id: pre_id, index: pre_index, case: _ },
+                SetCaseValue { id, mut index, value }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1100,52 +1542,52 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(SetFilterPredicate { id, index, predicate })
+                Some(SetCaseValue { id, index, value })
             }
 
             (
-                DeleteFilter { id: pre_id, index: pre_index },
-                InsertFilter { id, mut index, filter }
+                DeleteCase { id: pre_id, index: pre_index },
+                InsertCase { id, mut index, case }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(InsertFilter { id, index, filter })
+                Some(InsertCase { id, index, case })
             }
 
             (
-                DeleteFilter { id: pre_id, index: pre_index },
-                DeleteFilter { id, mut index }
+                DeleteCase { id: pre_id, index: pre_index },
+                DeleteCase { id, mut index }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(DeleteFilter { id, index })
+                Some(DeleteCase { id, index })
             }
 
             (
-                DeleteFilter { id: pre_id, index: pre_index },
-                SetFilterColumn { id, mut index, column }
+                DeleteCase { id: pre_id, index: pre_index },
+                SetCaseColumn { id, mut index, column }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(SetFilterColumn { id, index, column })
+                Some(SetCaseColumn { id, index, column })
             }
 
             (
-                DeleteFilter { id: pre_id, index: pre_index },
-                SetFilterPredicate { id, mut index, predicate }
+                DeleteCase { id: pre_id, index: pre_index },
+                SetCaseValue { id, mut index, value }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(SetFilterPredicate { id, index, predicate })
+                Some(SetCaseValue { id, index, value })
             }
 
             (
-                InsertJoin { id: pre_id, index: pre_index, join_column: _ },
-                InsertJoin { id, mut index, join_column }
+                InsertJoinColumn { id: pre_id, index: pre_index, join_column: _ },
+                InsertJoinColumn { id, mut index, join_column }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1154,12 +1596,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(InsertJoin { id, index, join_column })
+                Some(InsertJoinColumn { id, index, join_column })
             }
 
             (
-                InsertJoin { id: pre_id, index: pre_index, join_column: _ },
-                DeleteJoin { id, mut index }
+                InsertJoinColumn { id: pre_id, index: pre_index, join_column: _ },
+                DeleteJoinColumn { id, mut index }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1168,12 +1610,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(DeleteJoin { id, index })
+                Some(DeleteJoinColumn { id, index })
             }
 
             (
-                InsertJoin { id: pre_id, index: pre_index, join_column: _ },
-                SetLeftJoinColumn { id, mut index, column }
+                InsertJoinColumn { id: pre_id, index: pre_index, join_column: _ },
+                SetJoinColumnLeft { id, mut index, column }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1182,12 +1624,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(SetLeftJoinColumn { id, index, column })
+                Some(SetJoinColumnLeft { id, index, column })
             }
 
             (
-                InsertJoin { id: pre_id, index: pre_index, join_column: _ },
-                SetRightJoinColumn { id, mut index, column }
+                InsertJoinColumn { id: pre_id, index: pre_index, join_column: _ },
+                SetJoinColumnRight { id, mut index, column }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1196,47 +1638,47 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(SetRightJoinColumn { id, index, column })
+                Some(SetJoinColumnRight { id, index, column })
             }
 
             (
-                DeleteJoin { id: pre_id, index: pre_index },
-                InsertJoin { id, mut index, join_column }
+                DeleteJoinColumn { id: pre_id, index: pre_index },
+                InsertJoinColumn { id, mut index, join_column }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(InsertJoin { id, index, join_column })
+                Some(InsertJoinColumn { id, index, join_column })
             }
 
             (
-                DeleteJoin { id: pre_id, index: pre_index },
-                DeleteJoin { id, mut index }
+                DeleteJoinColumn { id: pre_id, index: pre_index },
+                DeleteJoinColumn { id, mut index }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(DeleteJoin { id, index })
+                Some(DeleteJoinColumn { id, index })
             }
 
             (
-                DeleteJoin { id: pre_id, index: pre_index },
-                SetLeftJoinColumn { id, mut index, column }
+                DeleteJoinColumn { id: pre_id, index: pre_index },
+                SetJoinColumnLeft { id, mut index, column }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(SetLeftJoinColumn { id, index, column })
+                Some(SetJoinColumnLeft { id, index, column })
             }
 
             (
-                DeleteJoin { id: pre_id, index: pre_index },
-                SetRightJoinColumn { id, mut index, column }
+                DeleteJoinColumn { id: pre_id, index: pre_index },
+                SetJoinColumnRight { id, mut index, column }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(SetRightJoinColumn { id, index, column })
+                Some(SetJoinColumnRight { id, index, column })
             }
 
             (
@@ -1529,56 +1971,232 @@ impl Operation {
 
             (
                 DeleteNode { id: pre_id },
-                InsertFilter { id, index, filter }
+                SetBinsName { id, name }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(InsertFilter { id, index, filter })
+                    Some(SetBinsName { id, name })
                 }
             }
 
             (
                 DeleteNode { id: pre_id },
-                DeleteFilter { id, index }
+                SetBinsColumn { id, column }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(DeleteFilter { id, index })
+                    Some(SetBinsColumn { id, column })
                 }
             }
 
             (
                 DeleteNode { id: pre_id },
-                SetFilterColumn { id, index, column }
+                SetBinsLowerBound { id, lower_bound }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(SetFilterColumn { id, index, column })
+                    Some(SetBinsLowerBound { id, lower_bound })
                 }
             }
 
             (
                 DeleteNode { id: pre_id },
-                SetFilterPredicate { id, index, predicate }
+                SetBinsUpperBound { id, upper_bound }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(SetFilterPredicate { id, index, predicate })
+                    Some(SetBinsUpperBound { id, upper_bound })
                 }
             }
 
             (
                 DeleteNode { id: pre_id },
-                SetCsvPath { id, path }
+                SetBinsCount { id, count }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(SetCsvPath { id, path })
+                    Some(SetBinsCount { id, count })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetCaseName { id, name }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetCaseName { id, name })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetCaseDataType { id, data_type }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetCaseDataType { id, data_type })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                InsertCase { id, index, case }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(InsertCase { id, index, case })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                DeleteCase { id, index }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(DeleteCase { id, index })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetCaseColumn { id, index, column }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetCaseColumn { id, index, column })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetCaseValue { id, index, value }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetCaseValue { id, index, value })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetCaseDefault { id, default }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetCaseDefault { id, default })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetCastName { id, name }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetCastName { id, name })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetCastColumn { id, column }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetCastColumn { id, column })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetCastDataType { id, data_type }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetCastDataType { id, data_type })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetComputeName { id, name }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetComputeName { id, name })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetComputeColumn { id, column }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetComputeColumn { id, column })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetComputeOperation { id, operation }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetComputeOperation { id, operation })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetFilterColumn { id, column }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetFilterColumn { id, column })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetFilterPredicate { id, predicate }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetFilterPredicate { id, predicate })
+                }
+            }
+
+            (
+                DeleteNode { id: pre_id },
+                SetLoadCsvFilename { id, filename }
+            ) => {
+                if &id == pre_id {
+                    None
+                } else {
+                    Some(SetLoadCsvFilename { id, filename })
                 }
             }
 
@@ -1595,45 +2213,45 @@ impl Operation {
 
             (
                 DeleteNode { id: pre_id },
-                InsertJoin { id, index, join_column }
+                InsertJoinColumn { id, index, join_column }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(InsertJoin { id, index, join_column })
+                    Some(InsertJoinColumn { id, index, join_column })
                 }
             }
 
             (
                 DeleteNode { id: pre_id },
-                DeleteJoin { id, index }
+                DeleteJoinColumn { id, index }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(DeleteJoin { id, index })
+                    Some(DeleteJoinColumn { id, index })
                 }
             }
 
             (
                 DeleteNode { id: pre_id },
-                SetLeftJoinColumn { id, index, column }
+                SetJoinColumnLeft { id, index, column }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(SetLeftJoinColumn { id, index, column })
+                    Some(SetJoinColumnLeft { id, index, column })
                 }
             }
 
             (
                 DeleteNode { id: pre_id },
-                SetRightJoinColumn { id, index, column }
+                SetJoinColumnRight { id, index, column }
             ) => {
                 if &id == pre_id {
                     None
                 } else {
-                    Some(SetRightJoinColumn { id, index, column })
+                    Some(SetJoinColumnRight { id, index, column })
                 }
             }
 
@@ -1886,58 +2504,58 @@ impl Operation {
             }
 
             (
-                InsertFilter { id: pre_id, index: pre_index, filter: _ },
-                InsertFilter { id, mut index, filter }
+                InsertCase { id: pre_id, index: pre_index, case: _ },
+                InsertCase { id, mut index, case }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(InsertFilter { id, index, filter })
+                Some(InsertCase { id, index, case })
             }
 
             (
-                InsertFilter { id: pre_id, index: pre_index, filter: _ },
-                DeleteFilter { id, mut index }
+                InsertCase { id: pre_id, index: pre_index, case: _ },
+                DeleteCase { id, mut index }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(DeleteFilter { id, index })
+                Some(DeleteCase { id, index })
             }
 
             (
-                InsertFilter { id: pre_id, index: pre_index, filter: _ },
-                SetFilterColumn { id, mut index, column }
+                InsertCase { id: pre_id, index: pre_index, case: _ },
+                SetCaseColumn { id, mut index, column }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(SetFilterColumn { id, index, column })
+                Some(SetCaseColumn { id, index, column })
             }
 
             (
-                InsertFilter { id: pre_id, index: pre_index, filter: _ },
-                SetFilterPredicate { id, mut index, predicate }
+                InsertCase { id: pre_id, index: pre_index, case: _ },
+                SetCaseValue { id, mut index, value }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(SetFilterPredicate { id, index, predicate })
+                Some(SetCaseValue { id, index, value })
             }
 
             (
-                DeleteFilter { id: pre_id, index: pre_index },
-                InsertFilter { id, mut index, filter }
+                DeleteCase { id: pre_id, index: pre_index },
+                InsertCase { id, mut index, case }
             ) => {
                 if &id == pre_id && index > *pre_index {
                     index -= 1;
                 }
-                Some(InsertFilter { id, index, filter })
+                Some(InsertCase { id, index, case })
             }
 
             (
-                DeleteFilter { id: pre_id, index: pre_index },
-                DeleteFilter { id, mut index }
+                DeleteCase { id: pre_id, index: pre_index },
+                DeleteCase { id, mut index }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1946,12 +2564,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(DeleteFilter { id, index })
+                Some(DeleteCase { id, index })
             }
 
             (
-                DeleteFilter { id: pre_id, index: pre_index },
-                SetFilterColumn { id, mut index, column }
+                DeleteCase { id: pre_id, index: pre_index },
+                SetCaseColumn { id, mut index, column }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1960,12 +2578,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(SetFilterColumn { id, index, column })
+                Some(SetCaseColumn { id, index, column })
             }
 
             (
-                DeleteFilter { id: pre_id, index: pre_index },
-                SetFilterPredicate { id, mut index, predicate }
+                DeleteCase { id: pre_id, index: pre_index },
+                SetCaseValue { id, mut index, value }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -1974,62 +2592,62 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(SetFilterPredicate { id, index, predicate })
+                Some(SetCaseValue { id, index, value })
             }
 
             (
-                InsertJoin { id: pre_id, index: pre_index, join_column: _ },
-                InsertJoin { id, mut index, join_column }
+                InsertJoinColumn { id: pre_id, index: pre_index, join_column: _ },
+                InsertJoinColumn { id, mut index, join_column }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(InsertJoin { id, index, join_column })
+                Some(InsertJoinColumn { id, index, join_column })
             }
 
             (
-                InsertJoin { id: pre_id, index: pre_index, join_column: _ },
-                DeleteJoin { id, mut index }
+                InsertJoinColumn { id: pre_id, index: pre_index, join_column: _ },
+                DeleteJoinColumn { id, mut index }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(DeleteJoin { id, index })
+                Some(DeleteJoinColumn { id, index })
             }
 
             (
-                InsertJoin { id: pre_id, index: pre_index, join_column: _ },
-                SetLeftJoinColumn { id, mut index, column }
+                InsertJoinColumn { id: pre_id, index: pre_index, join_column: _ },
+                SetJoinColumnLeft { id, mut index, column }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(SetLeftJoinColumn { id, index, column })
+                Some(SetJoinColumnLeft { id, index, column })
             }
 
             (
-                InsertJoin { id: pre_id, index: pre_index, join_column: _ },
-                SetRightJoinColumn { id, mut index, column }
+                InsertJoinColumn { id: pre_id, index: pre_index, join_column: _ },
+                SetJoinColumnRight { id, mut index, column }
             ) => {
                 if &id == pre_id && index >= *pre_index {
                     index += 1;
                 }
-                Some(SetRightJoinColumn { id, index, column })
+                Some(SetJoinColumnRight { id, index, column })
             }
 
             (
-                DeleteJoin { id: pre_id, index: pre_index },
-                InsertJoin { id, mut index, join_column }
+                DeleteJoinColumn { id: pre_id, index: pre_index },
+                InsertJoinColumn { id, mut index, join_column }
             ) => {
                 if &id == pre_id && index > *pre_index {
                     index -= 1;
                 }
-                Some(InsertJoin { id, index, join_column })
+                Some(InsertJoinColumn { id, index, join_column })
             }
 
             (
-                DeleteJoin { id: pre_id, index: pre_index },
-                DeleteJoin { id, mut index }
+                DeleteJoinColumn { id: pre_id, index: pre_index },
+                DeleteJoinColumn { id, mut index }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -2038,12 +2656,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(DeleteJoin { id, index })
+                Some(DeleteJoinColumn { id, index })
             }
 
             (
-                DeleteJoin { id: pre_id, index: pre_index },
-                SetLeftJoinColumn { id, mut index, column }
+                DeleteJoinColumn { id: pre_id, index: pre_index },
+                SetJoinColumnLeft { id, mut index, column }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -2052,12 +2670,12 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(SetLeftJoinColumn { id, index, column })
+                Some(SetJoinColumnLeft { id, index, column })
             }
 
             (
-                DeleteJoin { id: pre_id, index: pre_index },
-                SetRightJoinColumn { id, mut index, column }
+                DeleteJoinColumn { id: pre_id, index: pre_index },
+                SetJoinColumnRight { id, mut index, column }
             ) => {
                 if &id == pre_id {
                     if index == *pre_index {
@@ -2066,7 +2684,7 @@ impl Operation {
                         index -= 1;
                     }
                 }
-                Some(SetRightJoinColumn { id, index, column })
+                Some(SetJoinColumnRight { id, index, column })
             }
 
             (

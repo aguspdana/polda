@@ -1,0 +1,12 @@
+.container {
+  height: 32px;
+  padding: 0 0 0 8px;
+  background: var(--color-base-700);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.up_down {
+  color: var(--color-base-400);
+}

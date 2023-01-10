@@ -1,0 +1,7 @@
+.container {
+  height: 100vh;
+  width: 100vw;
+  background: var(--color-base-1000);
+  display: flex;
+  user-select: none;
+}

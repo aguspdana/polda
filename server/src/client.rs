@@ -1,5 +1,4 @@
-use actix::Addr;
-use actix::Actor;
+use actix::Addr;use actix::Actor;
 use actix::ActorContext;
 use actix::AsyncContext;
 use actix::ContextFutureSpawner;
@@ -23,6 +22,7 @@ use rand::thread_rng;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
@@ -32,6 +32,7 @@ use crate::broker::OpenDocumentMsg;
 use crate::document::Document;
 use crate::document::GetDocMsg;
 use crate::document::QueryMsg;
+use crate::document::ReadFileMsg;
 use crate::document::SubscribeMsg;
 use crate::document::UnsubscribeMsg;
 use crate::document::UpdateDocMsg;
@@ -154,7 +155,12 @@ impl Actor for Client {
             ctx.ping(b"");
         });
         let msg = RpcResponseMsg::ClientId { client_id: self.id.clone() };
-        ctx.address().do_send(msg)
+        ctx.address().do_send(msg);
+
+        let dir = Path::new(".");
+        let sources = get_sources(dir);
+        let msg = RpcResponseMsg::Sources { sources };
+        ctx.address().do_send(msg);
     }
 
     fn stopped(&mut self, _ctx: &mut WebsocketContext<Client>) {
@@ -247,6 +253,24 @@ impl StreamHandler<Result<Message, ProtocolError>> for Client {
                                 ctx.address().do_send(msg);
                             }
                         }
+                        ReadFile { id, filename } => {
+                            if let Some(addr) = &self.document {
+                                let msg = ReadFileMsg {
+                                    client: ctx.address(),
+                                    client_id: self.id.clone(),
+                                    req_id: id,
+                                    filename
+                                };
+                                addr.do_send(msg);
+                            } else {
+                                let msg = RpcResponseMsg::Error {
+                                    id: Some(id),
+                                    code: RpcErrorCode::InvalidRequest,
+                                    msg: String::from("Open doc before querying!")
+                                };
+                                ctx.address().do_send(msg);
+                            }
+                        }
                         CancelJob { id } => {
                             let msg = CancelJobMsg {
                                 client: ctx.address(),
@@ -304,6 +328,10 @@ pub enum RpcRequest {
         id: usize,
         node_id: String
     },
+    ReadFile {
+        id: usize,
+        filename: String
+    },
     CancelJob {
         id: usize
     },
@@ -330,6 +358,9 @@ pub enum RpcResponseMsg {
     ClientId {
         client_id: String
     },
+    Sources {
+        sources: Vec<String>
+    },
     Doc {
         id: usize,
         version: usize,
@@ -338,7 +369,7 @@ pub enum RpcResponseMsg {
     DocClosed {
         id: usize
     },
-    Update {
+    UpdateDoc {
         /// The client that make the update gets a response with an id, others
         /// don't.
         id: Option<usize>,
@@ -349,7 +380,11 @@ pub enum RpcResponseMsg {
         id: usize,
         data: DataFrame
     },
-    QueryCanceled {
+    FileData {
+        id: usize,
+        data: DataFrame
+    },
+    JobCanceled {
         id: usize
     },
     Error {
@@ -395,4 +430,28 @@ fn random_string(len: usize) -> String {
         .take(len)
         .map(char::from)
         .collect()
+}
+
+fn get_sources<T: AsRef<Path>>(dir: T) -> Vec<String> {
+    let mut sources = vec![];
+    if let Ok(entries) = dir.as_ref().read_dir() {
+        entries.for_each(|entry_res| {
+            if let Ok(entry) = entry_res {
+                if let Ok(ftype) = entry.file_type(){
+                    if ftype.is_file() {
+                        let path = entry.path();
+                        if let Some(filename) = path.file_name() {
+                            let filename = filename
+                                .to_string_lossy()
+                                .to_string();
+                            if filename.ends_with(".csv") {
+                                sources.push(filename);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    sources
 }

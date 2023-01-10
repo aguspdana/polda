@@ -46,7 +46,7 @@ impl Query {
     pub fn from_node(node: &Node, inputs: Vec<Query>) -> Result<Query, PoldaError> {
         use Node::*;
         match node {
-            LoadCsv { id: _, position: _, path: _, outputs: _ } => {
+            LoadCsv { id: _, position: _, filename: _, outputs: _ } => {
                 PolarsQuery::from_node(node, vec![])
                     .map(|q| Query::Polars(q))
             }

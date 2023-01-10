@@ -1,0 +1,8 @@
+.btn {
+  height: 24px;
+  border-radius: 4px;
+  background: var(--color-base-700);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

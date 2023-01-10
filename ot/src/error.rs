@@ -1,10 +1,10 @@
-use crate::operation::Operation;
-use crate::position::Position;
+use crate::Operation;
+use crate::Path;
 
 #[derive(Debug, Clone)]
 pub enum Error {
-    IncompatiblePositions(Position, Position),
+    IncompatiblePositions(Path, Path),
     InvalidOperation(Operation),
-    NonexistentPosition(Position, Operation),
+    NonexistentPosition(Path, Operation),
     Unsyncable
 }

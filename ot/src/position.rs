@@ -1,7 +1,8 @@
 // TODO: This code looks like it's fresh out of Frankenstein's lab.
 // Make it more readable!
 
-use crate::{operation::Operation, error::Error};
+use crate::Operation;
+use crate::Error;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Branch {
@@ -28,19 +29,19 @@ impl Branch {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PositionType {
-    /// A position that can be deleted only if it's within the delete range,
-    /// exclusive to the start and end position.
-    /// I.e. `Insert`, `InsertChars`, and `Move` target position.
+pub enum PathType {
+    /// A path that can be deleted only if it's within the delete range,
+    /// exclusive to the start and end path.
+    /// I.e. `Insert`, `InsertChars`, and `Move` target path.
     Anchor,
-    /// A position that can't be deleted.
+    /// A path that can't be deleted.
     RangeStart,
-    /// A position that can't be deleted.
+    /// A path that can't be deleted.
     RangeEnd,
-    /// A position that can be deleted and can be moved.
-    /// I.e. `Set` and `Move` initial position.
+    /// A path that can be deleted and can be moved.
+    /// I.e. `Set` and `Move` initial path.
     Exact,
-    /// Like `Exact` but the position no longer exists after it's set.
+    /// Like `Exact` but the path no longer exists after it's set.
     Change
 }
 
@@ -51,9 +52,9 @@ pub enum BackTransform {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Position(pub Vec<Branch>);
+pub struct Path(pub Vec<Branch>);
 
-impl Position {
+impl Path {
     /// # Panic
     /// Panic if `at` is out of range.
     pub fn branch(&self, at: usize) -> &Branch {
@@ -61,7 +62,7 @@ impl Position {
     }
 
     /// Check if `self` is an anchetor of `of`.
-    pub fn is_ancestor(&self, of: &Position) -> bool {
+    pub fn is_ancestor(&self, of: &Path) -> bool {
         if self.0.len() >= of.0.len() {
             return false;
         }
@@ -69,16 +70,16 @@ impl Position {
     }
 
     /// Check if `self` is an anchetor of `of`.
-    pub fn is_ancestor_or_equal(&self, of: &Position) -> bool {
+    pub fn is_ancestor_or_equal(&self, of: &Path) -> bool {
         if self.0.len() > of.0.len() {
             return false;
         }
         self.0 == of.0[..self.len()]
     }
 
-    /// Check if the positions have the same length, each branch has the same
+    /// Check if the path have the same length, each branch has the same
     /// branch type, and each field branch has the same value.
-    pub fn is_compatible(&self, other: &Position) -> bool {
+    pub fn is_compatible(&self, other: &Path) -> bool {
         if self.0.len() != other.0.len() {
             return false;
         }
@@ -112,7 +113,7 @@ impl Position {
     }
 
     /// Check if the parent of `self` is an anchetor of `of`.
-    pub fn is_parent_ancestor(&self, of: &Position) -> bool {
+    pub fn is_parent_ancestor(&self, of: &Path) -> bool {
         if self.0.len() == 0 {
             return false;
         }
@@ -130,7 +131,7 @@ impl Position {
         self.0.len() == 0
     }
 
-    pub fn is_sibling(&self, other: &Position) -> bool {
+    pub fn is_sibling(&self, other: &Path) -> bool {
         if self.0.len() == 0 {
             return false;
         }
@@ -144,7 +145,7 @@ impl Position {
     /// Get the last branch.
     ///
     /// # Panic
-    /// Panic if the position is root.
+    /// Panic if the path is root.
     pub fn leaf(&self) -> &Branch {
         &self.0[self.0.len() - 1]
     }
@@ -163,17 +164,17 @@ impl Position {
         use Operation::*;
 
         match (before, after) {
-            (Insert(pos_before, values_before), Insert(pos_after, values_after)) => {
-                if !pos_before.is_parent_ancestor(&self)
+            (Insert(path_before, values_before), Insert(path_after, values_after)) => {
+                if !path_before.is_parent_ancestor(&self)
                     || values_before.len() != values_after.len()
                 {
                     panic!("Invalid mapper");
                 }
 
-                if let Index(i) = *self.branch(pos_before.len() - 1) {
-                    if let Index(i_b) = pos_before.leaf() {
-                        if let Index(i_a) = pos_after.leaf() {
-                            self.replace_head(pos_before.len(), pos_after.clone());
+                if let Index(i) = *self.branch(path_before.len() - 1) {
+                    if let Index(i_b) = path_before.leaf() {
+                        if let Index(i_a) = path_after.leaf() {
+                            self.replace_head(path_before.len(), path_after.clone());
                             if i_b == i_a {
                                 return ();
                             }
@@ -183,7 +184,7 @@ impl Position {
                             let offset = i - i_b;
                             let new_i = i_a + offset;
                             let branch = Index(new_i);
-                            self.set_branch(pos_after.len() - 1, branch);
+                            self.set_branch(path_after.len() - 1, branch);
                         } else {
                             panic!("Invalid operation");
                         }
@@ -195,15 +196,15 @@ impl Position {
                 }
             }
 
-            (InsertChars(pos_before, chars_before), InsertChars(pos_after, chars_after)) => {
-                if !pos_before.is_sibling(&self)
+            (InsertChars(path_before, chars_before), InsertChars(path_after, chars_after)) => {
+                if !path_before.is_sibling(&self)
                     || chars_before.len() != chars_after.len() {
                     panic!("Invalid mapper");
                 }
 
                 if let Index(i) = *self.leaf() {
-                    if let Index(i_b) = pos_before.leaf() {
-                        if let Index(i_a) = pos_after.leaf() {
+                    if let Index(i_b) = path_before.leaf() {
+                        if let Index(i_a) = path_after.leaf() {
                             if i_b == i_a {
                                 return ();
                             }
@@ -213,7 +214,7 @@ impl Position {
                             let offset = i - i_b;
                             let new_i = i_a + offset;
                             let branch = Index(new_i);
-                            self.set_branch(pos_after.len() - 1, branch);
+                            self.set_branch(path_after.len() - 1, branch);
                         } else {
                             panic!("Invalid operation");
                         }
@@ -225,20 +226,20 @@ impl Position {
                 }
             }
 
-            (Set(pos_before, _), Set(pos_after, _)) => {
-                if self.len() < pos_before.len()
-                    || self.0[..pos_before.len()] == pos_before.0
+            (Set(path_before, _), Set(path_after, _)) => {
+                if self.len() < path_before.len()
+                    || self.0[..path_before.len()] == path_before.0
                 {
                     panic!("Invalid mapper");
                 }
-                self.replace_head(pos_before.len(), pos_after.clone());
+                self.replace_head(path_before.len(), path_after.clone());
             }
 
             (_, _) => panic!("Invalid mapper")
         }
     }
 
-    fn replace_head(&mut self, at: usize, head: Position) {
+    fn replace_head(&mut self, at: usize, head: Path) {
         self.0.splice(..at, head.0);
     }
 
@@ -254,44 +255,44 @@ impl Position {
         &mut self,
         op: &Operation,
         map: Option<&Operation>,
-        position_type: PositionType
+        path_type: PathType
     ) -> Result<BackTransform, Error> {
         use Branch::Field;
         use Branch::Index;
         use Operation::*;
 
         match op {
-            Insert(pos, values) => {
-                if pos.is_root() {
-                    return Err(Error::InvalidOperation(Insert(pos.clone(), values.clone())));
+            Insert(path, values) => {
+                if path.is_root() {
+                    return Err(Error::InvalidOperation(Insert(path.clone(), values.clone())));
                 }
-                if !pos.is_parent_ancestor(&self) {
+                if !path.is_parent_ancestor(&self) {
                     return Ok(BackTransform::Transformed);
                 }
-                let at = pos.len() - 1;
-                if let (Index(op_i), Index(i)) = (pos.leaf(), self.branch(at)) {
+                let at = path.len() - 1;
+                if let (Index(op_i), Index(i)) = (path.leaf(), self.branch(at)) {
                     if *i >= op_i + values.len() {
                         let branch = Index(i - values.len());
                         self.set_branch(at, branch);
                         Ok(BackTransform::Transformed)
                     } else if i >= op_i {
-                        if let Some(Insert(map_pos, _)) = map {
-                            if let Index(map_i) = map_pos.leaf() {
+                        if let Some(Insert(map_path, _)) = map {
+                            if let Index(map_i) = map_path.leaf() {
                                 let offset = i - op_i;
                                 let new_i = map_i + offset;
                                 let branch = Index(new_i);
-                                self.replace_head(pos.len(), map_pos.clone());
-                                self.set_branch(map_pos.len() - 1, branch);
+                                self.replace_head(path.len(), map_path.clone());
+                                self.set_branch(map_path.len() - 1, branch);
                                 Ok(BackTransform::Mapped)
                             } else {
                                 Ok(BackTransform::None)
                             }
-                        } else if self.len() == pos.len() && (
-                            position_type == PositionType::Anchor
-                            || position_type == PositionType::RangeStart
-                            || position_type == PositionType::RangeEnd
+                        } else if self.len() == path.len() && (
+                            path_type == PathType::Anchor
+                            || path_type == PathType::RangeStart
+                            || path_type == PathType::RangeEnd
                         ) {
-                            *self = pos.clone();
+                            *self = path.clone();
                             Ok(BackTransform::Transformed)
                         } else {
                             Ok(BackTransform::None)
@@ -300,55 +301,55 @@ impl Position {
                         Ok(BackTransform::Transformed)
                     }
                 } else {
-                    Err(Error::IncompatiblePositions(pos.clone(), self.clone()))
+                    Err(Error::IncompatiblePositions(path.clone(), self.clone()))
                 }
             }
 
-            Delete(pos, len) => {
-                if pos.is_root() {
-                    return Err(Error::InvalidOperation(Delete(pos.clone(), *len)));
+            Delete(path, len) => {
+                if path.is_root() {
+                    return Err(Error::InvalidOperation(Delete(path.clone(), *len)));
                 }
-                if !pos.is_parent_ancestor(&self) {
+                if !path.is_parent_ancestor(&self) {
                     return Ok(BackTransform::Transformed);
                 }
-                let at = pos.len() - 1;
-                if let (Index(op_i), Index(i)) = (pos.leaf(), self.branch(at)) {
+                let at = path.len() - 1;
+                if let (Index(op_i), Index(i)) = (path.leaf(), self.branch(at)) {
                     if i >= op_i {
                         let branch = Index(i + len);
                         self.set_branch(at, branch);
                     }
                     return Ok(BackTransform::Transformed);
                 }
-                Err(Error::IncompatiblePositions(pos.clone(), self.clone()))
+                Err(Error::IncompatiblePositions(path.clone(), self.clone()))
             }
 
-            InsertChars(pos, chars) => {
-                if !pos.is_sibling(&self) {
+            InsertChars(path, chars) => {
+                if !path.is_sibling(&self) {
                     return Ok(BackTransform::Transformed);
                 }
-                if let (Index(op_i), Index(i)) = (pos.leaf(), self.leaf()) {
+                if let (Index(op_i), Index(i)) = (path.leaf(), self.leaf()) {
                     if *i >= op_i + chars.len() {
                         let branch = Index(i - chars.len());
                         self.set_branch(self.len() - 1, branch);
                         Ok(BackTransform::Transformed)
                     } else if i >= op_i {
-                        if let Some(Insert(map_pos, _)) = map {
-                            if let Index(map_i) = map_pos.leaf() {
+                        if let Some(Insert(map_path, _)) = map {
+                            if let Index(map_i) = map_path.leaf() {
                                 let offset = i - op_i;
                                 let new_i = map_i + offset;
                                 let branch = Index(new_i);
-                                self.replace_head(pos.len(), map_pos.clone());
-                                self.set_branch(map_pos.len() - 1, branch);
+                                self.replace_head(path.len(), map_path.clone());
+                                self.set_branch(map_path.len() - 1, branch);
                                 Ok(BackTransform::Mapped)
                             } else {
                                 Ok(BackTransform::None)
                             }
-                        } else if self.len() == pos.len() && (
-                            position_type == PositionType::Anchor
-                            || position_type == PositionType::RangeStart
-                            || position_type == PositionType::RangeEnd
+                        } else if self.len() == path.len() && (
+                            path_type == PathType::Anchor
+                            || path_type == PathType::RangeStart
+                            || path_type == PathType::RangeEnd
                         ) {
-                            *self = pos.clone();
+                            *self = path.clone();
                             Ok(BackTransform::Transformed)
                         } else {
                             Ok(BackTransform::None)
@@ -357,23 +358,23 @@ impl Position {
                         Ok(BackTransform::Transformed)
                     }
                 } else {
-                    Err(Error::IncompatiblePositions(self.clone(), pos.clone()))
+                    Err(Error::IncompatiblePositions(self.clone(), path.clone()))
                 }
             }
 
-            DeleteChars(pos, len) => {
-                if !pos.is_sibling(&self) {
+            DeleteChars(path, len) => {
+                if !path.is_sibling(&self) {
                     return Ok(BackTransform::Transformed);
                 }
-                let at = pos.len() - 1;
-                if let (Index(op_i), Index(i)) = (pos.leaf(), self.branch(at)) {
+                let at = path.len() - 1;
+                if let (Index(op_i), Index(i)) = (path.leaf(), self.branch(at)) {
                     if i >= op_i {
                         let branch = Index(i + len);
                         self.set_branch(at, branch);
                     }
                     return Ok(BackTransform::Transformed);
                 }
-                Err(Error::IncompatiblePositions(pos.clone(), self.clone()))
+                Err(Error::IncompatiblePositions(path.clone(), self.clone()))
             }
 
             Move(from, to) => {
@@ -405,8 +406,8 @@ impl Position {
 
                             if *i == ti {
                                 if self.len() != to.len()
-                                    || position_type == PositionType::Exact
-                                    || position_type == PositionType::Change
+                                    || path_type == PathType::Exact
+                                    || path_type == PathType::Change
                                 {
                                     let branch = Index(*fi);
                                     self.set_branch(to.len() - 1, branch);
@@ -457,8 +458,8 @@ impl Position {
                     match (self.branch(to.len()- 1), to.leaf()) {
                         (Index(i), Index(ti)) => {
                             if i == ti {
-                                if position_type == PositionType::Exact
-                                    || position_type == PositionType::Change
+                                if path_type == PathType::Exact
+                                    || path_type == PathType::Change
                                 {
                                     self.replace_head(to.len() - 1, from.clone());
                                     Ok(BackTransform::Transformed)
@@ -516,10 +517,10 @@ impl Position {
                 }
             }
 
-            Set(pos, _) => {
-                if self.len() >= pos.len() && self.0[..pos.len()] == pos.0 {
-                    if let Some(Set(map_pos, _)) = map {
-                        self.replace_head(pos.len(), map_pos.clone());
+            Set(path, _) => {
+                if self.len() >= path.len() && self.0[..path.len()] == path.0 {
+                    if let Some(Set(map_path, _)) = map {
+                        self.replace_head(path.len(), map_path.clone());
                         Ok(BackTransform::Mapped)
                     } else {
                         Ok(BackTransform::None)
@@ -536,7 +537,7 @@ impl Position {
     pub fn transform_forward(
         &mut self,
         op: &Operation,
-        position_type: PositionType,
+        path_type: PathType,
         extend_range: bool
     ) -> Result<bool, Error> {
         use Branch::Index;
@@ -544,24 +545,24 @@ impl Position {
         use Operation::*;
 
         match op {
-            Insert(pos, values) => {
+            Insert(path, values) => {
                 if self.is_root() {
                     return Ok(true);
                 }
-                if pos.is_root() {
-                    return Err(Error::InvalidOperation(Insert(pos.clone(), values.clone())));
+                if path.is_root() {
+                    return Err(Error::InvalidOperation(Insert(path.clone(), values.clone())));
                 }
-                if !pos.is_parent_ancestor(&self) {
+                if !path.is_parent_ancestor(&self) {
                     return Ok(true);
                 }
-                let at = pos.len() - 1;
-                if let (Index(op_i), Index(i)) = (pos.leaf(), self.branch(at)) {
+                let at = path.len() - 1;
+                if let (Index(op_i), Index(i)) = (path.leaf(), self.branch(at)) {
                     if i > op_i
                         || (
                             i == op_i
                             && (
-                                self.len() != pos.len()
-                                || position_type != PositionType::RangeEnd
+                                self.len() != path.len()
+                                || path_type != PathType::RangeEnd
                                 || extend_range
                             )
                         )
@@ -571,26 +572,26 @@ impl Position {
                     }
                     Ok(true)
                 } else {
-                    Err(Error::IncompatiblePositions(self.clone(), pos.clone()))
+                    Err(Error::IncompatiblePositions(self.clone(), path.clone()))
                 }
             }
 
-            Delete(pos, len) => {
+            Delete(path, len) => {
                 if self.is_root() {
                     return Ok(true);
                 }
-                if pos.is_root() {
-                    return Err(Error::InvalidOperation(Delete(pos.clone(), *len)));
+                if path.is_root() {
+                    return Err(Error::InvalidOperation(Delete(path.clone(), *len)));
                 }
-                if !pos.is_parent_ancestor(&self) {
+                if !path.is_parent_ancestor(&self) {
                     return Ok(true);
                 }
-                let at = pos.len() - 1;
-                if let (Index(op_i), Index(i)) = (pos.leaf(), self.branch(at)) {
+                let at = path.len() - 1;
+                if let (Index(op_i), Index(i)) = (path.leaf(), self.branch(at)) {
                     if *i < op_i + len {
-                        if self.len() == pos.len() {
-                            use PositionType::*;
-                            match position_type {
+                        if self.len() == path.len() {
+                            use PathType::*;
+                            match path_type {
                                 RangeStart | RangeEnd => {
                                     if i > op_i {
                                         self.set_branch(at, Index(*op_i))
@@ -609,27 +610,27 @@ impl Position {
                         Ok(true)
                     }
                 } else {
-                    Err(Error::IncompatiblePositions(self.clone(), pos.clone()))
+                    Err(Error::IncompatiblePositions(self.clone(), path.clone()))
                 }
             }
 
-            InsertChars(pos, chars) => {
+            InsertChars(path, chars) => {
                 if self.is_root() {
                     return Ok(true);
                 }
-                if pos.is_root() {
-                    return Err(Error::InvalidOperation(InsertChars(pos.clone(), chars.clone())));
+                if path.is_root() {
+                    return Err(Error::InvalidOperation(InsertChars(path.clone(), chars.clone())));
                 }
-                if !pos.is_sibling(&self) {
+                if !path.is_sibling(&self) {
                     return Ok(true);
                 }
-                let at = pos.len() - 1;
-                if let (Index(op_i), Index(i)) = (pos.leaf(), self.branch(at)) {
+                let at = path.len() - 1;
+                if let (Index(op_i), Index(i)) = (path.leaf(), self.branch(at)) {
                     if i > op_i
                         || (
                             i == op_i
                             && (
-                                position_type != PositionType::RangeEnd
+                                path_type != PathType::RangeEnd
                                 || extend_range
                             )
                         )
@@ -639,25 +640,25 @@ impl Position {
                     }
                     Ok(true)
                 } else {
-                    Err(Error::IncompatiblePositions(self.clone(), pos.clone()))
+                    Err(Error::IncompatiblePositions(self.clone(), path.clone()))
                 }
             }
 
-            DeleteChars(pos, len) => {
+            DeleteChars(path, len) => {
                 if self.is_root() {
                     return Ok(true);
                 }
-                if pos.is_root() {
-                    return Err(Error::InvalidOperation(Delete(pos.clone(), *len)));
+                if path.is_root() {
+                    return Err(Error::InvalidOperation(Delete(path.clone(), *len)));
                 }
-                if !pos.is_sibling(&self) {
+                if !path.is_sibling(&self) {
                     return Ok(true);
                 }
-                let at = pos.len() - 1;
-                if let (Index(op_i), Index(i)) = (pos.leaf(), self.branch(at)) {
+                let at = path.len() - 1;
+                if let (Index(op_i), Index(i)) = (path.leaf(), self.branch(at)) {
                     if *i < op_i + len {
-                        use PositionType::*;
-                        match position_type {
+                        use PathType::*;
+                        match path_type {
                             RangeStart | RangeEnd => {
                                 if i > op_i {
                                     self.set_branch(at, Index(*op_i))
@@ -673,7 +674,7 @@ impl Position {
                         Ok(true)
                     }
                 } else {
-                    Err(Error::IncompatiblePositions(self.clone(), pos.clone()))
+                    Err(Error::IncompatiblePositions(self.clone(), path.clone()))
                 }
             }
 
@@ -694,8 +695,8 @@ impl Position {
                     if from.is_ancestor_or_equal(&self)
                         && (
                             self.len() != from.len()
-                            || position_type == PositionType::Exact
-                            || position_type == PositionType::Change
+                            || path_type == PathType::Exact
+                            || path_type == PathType::Change
                         )
                     {
                         self.replace_head(from.len(), to.clone());
@@ -713,8 +714,8 @@ impl Position {
                                     if i == from_i && (
                                         from.len() != self.len()
                                         || (
-                                            position_type == PositionType::Exact
-                                            || position_type == PositionType::Change
+                                            path_type == PathType::Exact
+                                            || path_type == PathType::Change
                                         )
                                     ) {
                                         let new_i = if from_i < to_i {
@@ -734,7 +735,7 @@ impl Position {
                                                 i == to_i
                                                 && (
                                                     self.len() != to.len()
-                                                    || position_type != PositionType::RangeEnd
+                                                    || path_type != PathType::RangeEnd
                                                     || extend_range
                                                 )
                                             )
@@ -749,8 +750,8 @@ impl Position {
                                     Err(Error::IncompatiblePositions(self.clone(), from.clone()))
                                 }
                             } else if i == from_i && (
-                                position_type == PositionType::Exact
-                                || position_type == PositionType::Change
+                                path_type == PathType::Exact
+                                || path_type == PathType::Change
                             ) {
                                 self.replace_head(from.len(), to.clone());
                                 Ok(true)
@@ -785,7 +786,7 @@ impl Position {
                                     i == to_i
                                     && (
                                         self.len() != to.len()
-                                        || position_type != PositionType::RangeEnd
+                                        || path_type != PathType::RangeEnd
                                         || extend_range
                                     )
                                 )
@@ -797,7 +798,7 @@ impl Position {
                         }
 
                         (Field(f), Field(from_f)) => {
-                            if self.len() == to.len() && position_type == PositionType::Exact {
+                            if self.len() == to.len() && path_type == PathType::Exact {
                                 Ok(true)
                             } else {
                                 Ok(f != from_f)
@@ -811,11 +812,11 @@ impl Position {
                 }
             }
 
-            Set(pos, _) => {
-                if pos.is_ancestor_or_equal(&self)
+            Set(path, _) => {
+                if path.is_ancestor_or_equal(&self)
                     && (
-                        self.len() != pos.len()
-                        || position_type == PositionType::Change
+                        self.len() != path.len()
+                        || path_type == PathType::Change
                     )
                 {
                     return Ok(false);
@@ -836,43 +837,43 @@ mod tests {
     use super::Branch::*;
     use super::Operation::*;
 
-    /// An anchor position should not change when items are inserted after it.
+    /// An anchor path should not change when items are inserted after it.
     #[test]
     fn transform_forward_insert_after_anchor_index() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(1)
         ]);
-        let op = Operation::Insert(Position(vec![
+        let op = Operation::Insert(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), vec![Value::Null, Value::Null]);
-        assert!(pos.transform_forward(&op, PositionType::Anchor, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Anchor, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(1)
         ]));
     }
 
-    /// An anchor position should be shift to the right when items are inserted
-    /// at the same position.
+    /// An anchor path should be shift to the right when items are inserted
+    /// at the same path.
     #[test]
     fn transform_forward_insert_at_anchor_index() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]);
-        let op = Operation::Insert(Position(vec![
+        let op = Operation::Insert(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), vec![Value::Null, Value::Null]);
-        assert!(pos.transform_forward(&op, PositionType::Anchor, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Anchor, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(4)
@@ -882,18 +883,18 @@ mod tests {
     /// Inserting items at the end of a delete range should extend the range.
     #[test]
     fn transform_forward_insert_at_range_end_extend() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]);
-        let op = Operation::Insert(Position(vec![
+        let op = Operation::Insert(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), vec![Value::Null, Value::Null]);
-        assert!(pos.transform_forward(&op, PositionType::RangeStart, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::RangeStart, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(4)
@@ -903,250 +904,250 @@ mod tests {
     /// An anchor located at start of a delete range should remain the same.
     #[test]
     fn transform_forward_delete_at_anchor() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]);
-        let op = Operation::Delete(Position(vec![
+        let op = Operation::Delete(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), 4);
-        assert!(pos.transform_forward(&op, PositionType::Anchor, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Anchor, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]));
     }
 
-    /// An exact position located at start of a delete range should not exist.
+    /// An exact path located at start of a delete range should not exist.
     #[test]
     fn transform_forward_delete_at_exact() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]);
-        let op = Operation::Delete(Position(vec![
+        let op = Operation::Delete(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), 4);
-        assert!(!pos.transform_forward(&op, PositionType::Exact, false).unwrap());
+        assert!(!path.transform_forward(&op, PathType::Exact, false).unwrap());
     }
 
-    /// An anchor position that is located within a delete range should not
+    /// An anchor path that is located within a delete range should not
     /// remain after the operation.
     #[test]
     fn transform_forward_delete_anchor_within_range() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(3)
         ]);
-        let op = Operation::Delete(Position(vec![
+        let op = Operation::Delete(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), 4);
-        assert!(!pos.transform_forward(&op, PositionType::Anchor, false).unwrap());
+        assert!(!path.transform_forward(&op, PathType::Anchor, false).unwrap());
     }
 
-    /// An anchor position that's located after the delete range should be
+    /// An anchor path that's located after the delete range should be
     /// shifted to the left by the length of the delete range.
     #[test]
     fn transform_forward_delete_just_before_anchor() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(6)
         ]);
-        let op = Operation::Delete(Position(vec![
+        let op = Operation::Delete(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), 4);
-        assert!(pos.transform_forward(&op, PositionType::Anchor, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Anchor, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]));
     }
 
-    /// Deleting a range position should set it to the start of the delete range.
+    /// Deleting a range path should set it to the start of the delete range.
     #[test]
     fn transform_forward_delete_range_start() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(4)
         ]);
-        let op = Operation::Delete(Position(vec![
+        let op = Operation::Delete(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), 4);
-        assert!(pos.transform_forward(&op, PositionType::RangeStart, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::RangeStart, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]));
     }
 
-    /// Deleting an exact position should delete it.
+    /// Deleting an exact path should delete it.
     #[test]
     fn transform_forward_delete_start_at_exact() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]);
-        let op = Operation::Delete(Position(vec![
+        let op = Operation::Delete(Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]), 4);
-        assert!(!pos.transform_forward(&op, PositionType::Exact, false).unwrap());
+        assert!(!path.transform_forward(&op, PathType::Exact, false).unwrap());
     }
 
-    /// Move an exact position.
+    /// Move an exact path.
     #[test]
     fn transform_forward_move_exact_index_under_same_parent() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(2)
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(4)
             ])
         );
-        assert!(pos.transform_forward(&op, PositionType::Exact, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Exact, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(3)
         ]));
     }
 
-    /// Move a sibling of an exact position under the same parent.
+    /// Move a sibling of an exact path under the same parent.
     #[test]
     fn transform_forward_move_sibling_of_exact_index_under_same_parent_between() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(3)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(2)
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(4)
             ])
         );
-        assert!(pos.transform_forward(&op, PositionType::Exact, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Exact, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]));
     }
 
-    /// Move a sibling of an exact position under the same parent.
+    /// Move a sibling of an exact path under the same parent.
     #[test]
     fn transform_forward_move_to_exact_sibling() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(4)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(2)
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(4)
             ])
         );
-        assert!(pos.transform_forward(&op, PositionType::Exact, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Exact, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(4)
         ]));
     }
 
-    /// Move a sibling of an exact position under the same parent.
+    /// Move a sibling of an exact path under the same parent.
     #[test]
     fn transform_forward_move_to_before_exact_sibling() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(5)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(2)
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(4)
             ])
         );
-        assert!(pos.transform_forward(&op, PositionType::Exact, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Exact, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(5)
         ]));
     }
 
-    /// Move a anchor position.
+    /// Move a anchor path.
     #[test]
     fn transform_forward_move_anchor() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(2)
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(4)
             ])
         );
-        assert!(pos.transform_forward(&op, PositionType::Anchor, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Anchor, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(2)
@@ -1156,25 +1157,25 @@ mod tests {
     /// Move to the end of a range but don't extend the range.
     #[test]
     fn transform_forward_move_to_range_end_not_extend_range() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(4)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(2)
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(4)
             ])
         );
-        assert!(pos.transform_forward(&op, PositionType::RangeStart, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::RangeStart, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(4)
@@ -1184,25 +1185,25 @@ mod tests {
     /// Move to the end of a range and extend the range.
     #[test]
     fn transform_forward_move_to_range_end_extend_range() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(4)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(8)
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b")),
                 Index(4)
             ])
         );
-        assert!(pos.transform_forward(&op, PositionType::RangeStart, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::RangeStart, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(5)
@@ -1211,61 +1212,61 @@ mod tests {
 
     #[test]
     fn transform_forward_move_to_change_field() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b"))
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("x")),
                 Field(String::from("b"))
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b"))
             ])
         );
-        assert!(!pos.transform_forward(&op, PositionType::Change, false).unwrap());
+        assert!(!path.transform_forward(&op, PathType::Change, false).unwrap());
     }
 
     #[test]
     fn transform_forward_move_to_anchor_field_parent() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(0)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("x")),
                 Field(String::from("b"))
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b"))
             ])
         );
-        assert!(!pos.transform_forward(&op, PositionType::Anchor, false).unwrap());
+        assert!(!path.transform_forward(&op, PathType::Anchor, false).unwrap());
     }
 
     #[test]
     fn transform_forward_move_to_exact_field() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b"))
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("x")),
                 Field(String::from("b"))
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b"))
             ])
         );
-        assert!(pos.transform_forward(&op, PositionType::Exact, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Exact, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b"))
         ]));
@@ -1273,39 +1274,39 @@ mod tests {
 
     #[test]
     fn transform_forward_move_to_exact_field_parent() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b")),
             Index(0)
         ]);
         let op = Move(
-            Position(vec![
+            Path(vec![
                 Field(String::from("x")),
                 Field(String::from("b"))
             ]),
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b"))
             ])
         );
-        assert!(!pos.transform_forward(&op, PositionType::Exact, false).unwrap());
+        assert!(!path.transform_forward(&op, PathType::Exact, false).unwrap());
     }
 
     #[test]
     fn transform_forward_set_exact_field() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b"))
         ]);
         let op = Set(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b"))
             ]),
             Value::Null
         );
-        assert!(pos.transform_forward(&op, PositionType::Exact, false).unwrap());
-        assert_eq!(pos, Position(vec![
+        assert!(path.transform_forward(&op, PathType::Exact, false).unwrap());
+        assert_eq!(path, Path(vec![
             Field(String::from("a")),
             Field(String::from("b"))
         ]));
@@ -1313,17 +1314,17 @@ mod tests {
 
     #[test]
     fn transform_forward_set_change_field() {
-        let mut pos = Position(vec![
+        let mut path = Path(vec![
             Field(String::from("a")),
             Field(String::from("b"))
         ]);
         let op = Set(
-            Position(vec![
+            Path(vec![
                 Field(String::from("a")),
                 Field(String::from("b"))
             ]),
             Value::Null
         );
-        assert!(!pos.transform_forward(&op, PositionType::Change, false).unwrap());
+        assert!(!path.transform_forward(&op, PathType::Change, false).unwrap());
     }
 }

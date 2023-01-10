@@ -1,0 +1,23 @@
+.container {
+  flex-grow: 1;
+  flex-shrink: 1;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.canvas {
+  position: absolute;
+  height: 0;
+  width: 0;
+  transform-origin: 0 0;
+  transition: transform 0.1s;
+}
+
+.background {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}

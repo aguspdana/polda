@@ -1,0 +1,8 @@
+.container {
+  position: absolute;
+  pointer-events: none;
+}
+
+.container path {
+  stroke-width: 4px;
+}

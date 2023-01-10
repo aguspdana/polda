@@ -7,9 +7,11 @@ use actix::Message as MessageTrait;
 use actix::Handler;
 use actix::Supervised;
 use actix::SystemService;
+use query::doc::Position;
 use query::doc::collect;
 use query::doc::Node;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -22,17 +24,21 @@ use crate::client::RpcResponseMsg;
 const ROW_LIMIT: usize = 100;
 
 #[derive(Debug)]
-pub enum JobType {
-    Query
+pub enum JobKind {
+    Query {
+        nodes: HashMap<String, Node>,
+        node_id: String
+    },
+    ReadFile {
+        filename: String
+    }
 }
 
 pub struct Job {
     pub client: Addr<Client>,
     pub client_id: String,
     pub job_id: usize,
-    pub job_type: JobType,
-    pub nodes: HashMap<String, Node>,
-    pub node_id: String
+    pub job_kind: JobKind
 }
 
 /// The currently running job is kept in the queue until the next job is
@@ -139,14 +145,14 @@ impl Handler<CancelJobMsg> for Executor {
         msg: CancelJobMsg,
         _ctx: &mut Context<Executor>
     ) {
-        let CancelJobMsg { client, client_id, job_id } = msg;
-        if let Some(job) = self.jobs.remove(client_id, job_id) {
-            match &job.as_ref().job_type {
-                JobType::Query => {
-                    let msg = RpcResponseMsg::QueryCanceled { id: msg.job_id };
-                    client.do_send(msg);
-                }
-            }
+        let CancelJobMsg {
+            client,
+            client_id,
+            job_id
+        } = msg;
+        if let Some(_) = self.jobs.remove(client_id, job_id) {
+            let msg = RpcResponseMsg::JobCanceled { id: msg.job_id };
+            client.do_send(msg);
         }
     }
 }
@@ -182,16 +188,47 @@ fn handle_job(job: &Job) {
         client,
         client_id: _,
         job_id,
-        job_type,
-        nodes,
-        node_id
+        job_kind
     } = job;
-    let msg = match job_type {
-        JobType::Query => {
+    let msg = match job_kind {
+        JobKind::Query { nodes, node_id } => {
             let res = collect(&nodes, &node_id, Some(ROW_LIMIT));
             match res {
                 Ok(df) => {
                     RpcResponseMsg::QueryResult {
+                        id: job_id.clone(),
+                        data: df
+                    }
+                }
+                Err(e) => {
+                    RpcResponseMsg::Error {
+                        id: Some(job_id.clone()),
+                        // TODO: Use a more appropriate error code.
+                        code: RpcErrorCode::InternalError,
+                        msg: e.to_string()
+                    }
+                }
+            }
+        }
+
+        JobKind::ReadFile { filename } => {
+            let node_id = String::from("a");
+            let node = Node::LoadCsv {
+                id: node_id.clone(),
+                position: Position {
+                    x: 0.0,
+                    y: 0.0
+                },
+                filename: filename.clone(),
+                outputs: HashSet::new()
+            };
+            let mut nodes = HashMap::new();
+            nodes.insert(node_id.clone(), node);
+            let res = collect(&nodes, &node_id, Some(ROW_LIMIT));
+
+            match res {
+                Ok(df) => {
+                    RpcResponseMsg::FileData {
                         id: job_id.clone(),
                         data: df
                     }

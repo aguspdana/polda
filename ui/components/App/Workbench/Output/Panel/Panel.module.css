@@ -1,0 +1,51 @@
+.container {
+  height: 34px;
+  border-style: solid;
+  border-width: 1px 0 1px;
+  border-color: var(--color-base-700);
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  user-select: none;
+}
+
+.group {
+  height: 100%;
+  display: flex;
+}
+
+.tab_btn,
+.tab_btn_active {
+  padding: 0 16px;
+  background: none;
+  letter-spacing: 0.24em;
+  font-weight: bold;
+  color: var(--color-base-400);
+  line-height: 32px;
+}
+
+.tab_btn:hover {
+  color: var(--color-base-100);
+}
+
+.tab_btn_active {
+  background: var(--color-base-700);
+  color: var(--color-base-100);
+}
+
+.action_btn {
+  height: 32px;
+  width: 32px;
+  background: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.action_btn svg * {
+  color: var(--color-base-400);
+}
+
+.action_btn:hover svg * {
+  color: var(--color-base-100);
+}

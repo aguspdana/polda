@@ -1,0 +1,42 @@
+.container {
+  width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.port,
+.port_connected {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  position: relative;
+}
+
+.port::before,
+.port::after,
+.port_connected::before,
+.port_connected::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: 8px;
+  width: 8px;
+  border-radius: 8px;
+  transform: translate(-50%, -50%);
+  background: var(--color-base-100);
+}
+
+.port::before,
+.port_connected::before {
+  opacity: 0.5;
+  transition: width 0.1s, height 0.1s;
+}
+
+.port:hover::before,
+.port_connected::before {
+  height: 16px;
+  width: 16px;
+}

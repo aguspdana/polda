@@ -2,6 +2,8 @@ use serde::Deserialize;
 use serde::Serialize;
 
 pub mod aggregate;
+pub mod case;
+pub mod compute;
 pub mod filter;
 pub mod join;
 pub mod select;

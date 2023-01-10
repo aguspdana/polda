@@ -12,7 +12,9 @@ pub struct Aggregate {
 #[serde(rename_all = "snake_case")]
 pub enum AggregateComputation {
     Count,
+    First,
     Group,
+    Last,
     Max,
     Mean,
     Median,
