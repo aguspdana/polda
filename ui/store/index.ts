@@ -198,6 +198,11 @@ type EErrorCode =
   | "INVALID_PARAMS"
   | "INTERNAL_ERROR";
 
+export interface IToast {
+  id: number,
+  msg: string
+}
+
 interface IState {
   clientId: string | null, // null means the client is not connected.
   send: (msg: EOutgoingMessage) => void,
@@ -249,6 +254,9 @@ interface IState {
   pendingOps: EOperation[],
   undoSent: EOperation[],
   undoPending: EOperation[],
+
+  // Toast
+  toasts: IToast[],
 
   // Web Socket
   resetClientId: () => void,
@@ -303,6 +311,10 @@ interface IState {
 
   // Operations
   executeOperations: (ops: EOperation[]) => void,
+
+  // Toast
+  pushToast: (msg: string) => void,
+  removeToast: (id: number) => void
 }
 
 export const useStore = create<IState>((set): IState => {
@@ -359,6 +371,9 @@ export const useStore = create<IState>((set): IState => {
     pendingOps: [],
     undoSent: [],
     undoPending: [],
+
+    // Toast
+    toasts: [],
 
     // Web Socket
 
@@ -1230,6 +1245,24 @@ export const useStore = create<IState>((set): IState => {
     executeOperations(ops) {
       set(state => executeOperationsOnState(state, ops));
     },
+
+    // Toast
+
+    pushToast(msg) {
+      const toast = {
+        id: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+        msg
+      };
+      set(state => ({
+        toasts: [...state.toasts, toast]
+      }));
+    },
+
+    removeToast(id) {
+      set(state => ({
+        toasts: state.toasts.filter(t => t.id !== id)
+      }));
+    }
   };
 });
 

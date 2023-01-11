@@ -1,0 +1,27 @@
+.container,
+.container_before,
+.container_after {
+  pointer-events: all;
+  transition: max-height 0.5s;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.container_before,
+.container_after {
+  max-height: 0px;
+}
+
+.container {
+  z-index: 2;
+  max-height: 200px;
+}
+
+.wrapper {
+  min-width: 320px;
+  padding: 32px;
+  border-radius: 8px;
+  background: var(--color-base-700);
+  box-shadow: 0 8px 8px rgba(0, 0, 0, 0.5);
+}

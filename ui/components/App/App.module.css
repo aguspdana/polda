@@ -5,3 +5,17 @@
   display: flex;
   user-select: none;
 }
+
+.toasts {
+  position: fixed;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: center;
+  gap: 8px;
+  align-items: center;
+  z-index: 999;
+}

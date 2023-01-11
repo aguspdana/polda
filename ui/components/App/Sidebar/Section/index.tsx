@@ -1,6 +1,7 @@
 import { DropDownIcon } from "components/icons/DropDownIcon";
 import { PlusIcon } from "components/icons/PlusIcon";
 import { useState } from "react";
+import { useStore } from "store";
 import styles from "./Section.module.css";
 
 interface Props {
@@ -12,6 +13,11 @@ interface Props {
 
 export function Section({ title, items, select, selected }: Props) {
   const [open, setOpen] = useState(true);
+  const pushToast = useStore(state => state.pushToast);
+
+  function unimplemented() {
+    pushToast("This feature is not implemented yet.");
+  }
 
   return (
     <div className={styles.container}>
@@ -28,7 +34,10 @@ export function Section({ title, items, select, selected }: Props) {
           </div>
         </button>
         <div className={styles.new_btn_wrapper}>
-          <button className={styles.new_btn}>
+          <button
+            className={styles.new_btn}
+            onClick={unimplemented}
+          >
             <PlusIcon/>
           </button>
         </div>

@@ -10,16 +10,25 @@ export function Panel() {
   const maximize = useStore(state => state.maximizeOutput);
   const minimize = useStore(state => state.minimizeOutput);
   const close = useStore(state => state.closeOutput);
+  const pushToast = useStore(state => state.pushToast);
 
   return (
     <div className={styles.container}>
       <div className={styles.group}>
         <button className={styles.tab_btn_active}>TABLE</button>
-        <button className={styles.tab_btn}>SUMMARY</button>
+        <button
+          className={styles.tab_btn}
+          onClick={() => pushToast("This feature is not implemented yet.")}
+        >
+          SUMMARY
+        </button>
       </div>
 
       <div className={styles.group}>
-        <button className={styles.action_btn}>
+        <button
+          className={styles.action_btn}
+          onClick={() => pushToast("This feature is not implemented yet.")}
+        >
           <DownloadIcon/>
         </button>
         {

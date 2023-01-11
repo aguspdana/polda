@@ -1,7 +1,4 @@
-import { DropDownIcon } from "components/icons/DropDownIcon";
-import { PlusIcon } from "components/icons/PlusIcon";
 import { PoldaIcon } from "components/icons/PoldaIcon";
-import { VerrticalDotMenuIcon } from "components/icons/VerticalDotMenuIcon";
 import { useStore } from "store";
 import { Section } from "./Section";
 import styles from "./Sidebar.module.css";
