@@ -60,7 +60,7 @@ export function LoadCsvNode(props: ILoadCsvNode) {
         <div className={styles.props}>
           <Input
             value={props.filename}
-            placeholder="Path"
+            placeholder="Filename"
             onChange={handlePathChange}
             roundTopLeft
             roundTopRight

@@ -95,7 +95,7 @@ export function Aggregate({ id, index,column, computation, alias, deletable }: P
     >
       <Input
         value={column}
-        placeholder="Column*"
+        placeholder="Column"
         onChange={handleColumnChange}
         roundTopLeft
         roundTopRight={!deletable}

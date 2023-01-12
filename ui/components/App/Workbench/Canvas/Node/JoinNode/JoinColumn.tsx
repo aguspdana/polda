@@ -48,14 +48,14 @@ export function JoinColumn({ id, index, left, right, deletable }: Props) {
     >
       <Input
         value={left}
-        placeholder="Left column*"
+        placeholder="Left column"
         onChange={handleLeftColumnChange}
         roundTopLeft
         roundTopRight={!deletable}
       />
       <Input
         value={right}
-        placeholder="Right column*"
+        placeholder="Right column"
         onChange={handleRightColumnChange}
         roundBottomRight={!deletable}
         roundBottomLeft
