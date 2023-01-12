@@ -1204,7 +1204,7 @@ export function canReplace(op: EOperation, withOp: EOperation): boolean {
 
 export function mergeBatch(batch: EOperation[], other: EOperation[]): EOperation[] {
   if (batch.length <= other.length) {
-    return other;
+    return [...batch, ...other];
   }
   const batchSlice = batch.slice(batch.length - other.length);
   let _canReplace = true;

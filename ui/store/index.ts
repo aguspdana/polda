@@ -1139,9 +1139,12 @@ export const useStore = create<IState>((set): IState => {
         if (state.doc === null) {
           return {};
         }
+        if (Object.keys(state.selectedNodes).length === 0) {
+          return {};
+        }
         const ops: EOperation[] = [];
         for (const id in state.selectedNodes) {
-          // IMPROVE: disconnectNodeOps may produce duplicate operations
+          // FIXME: disconnectNodeOps may produce duplicate operations
           // across selected nodes.
           disconnectNodeOps(state.doc.nodes, id)
             .forEach(op => ops.push(op));
@@ -1271,6 +1274,10 @@ export const useStore = create<IState>((set): IState => {
  * If sentOperations is empty, send pendingOperations.
  */
 function executeOperationsOnState(state: IState, ops: EOperation[]): Partial<IState> {
+  if (ops.length === 0) {
+    return {};
+  }
+
   const patch: Partial<IState> = {};
   
   if (state.doc !== null) {
@@ -1289,12 +1296,13 @@ function executeOperationsOnState(state: IState, ops: EOperation[]): Partial<ISt
         patch.pendingOps = [];
         patch.undoSent = undoPending;
         patch.undoPending = [];
-        state.send({
+        const msg: EOutgoingMessage = {
           type: "update_doc",
           id: patch.msgCounter,
           version: state.version,
           operations: pendingOps
-        });
+        };
+        state.send(msg);
       } else {
         patch.pendingOps = pendingOps;
         patch.undoPending = undoPending;
