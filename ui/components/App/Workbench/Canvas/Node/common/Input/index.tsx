@@ -34,6 +34,7 @@ export function Input({
       value={value}
       placeholder={placeholder}
       onChange={handleChange}
+      onKeyDown={e => e.stopPropagation()}
       style={{
         borderRadius
       }}
