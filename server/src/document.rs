@@ -1,8 +1,11 @@
 use actix::Addr;
 use actix::Actor;
+use actix::ActorContext;
+use actix::AsyncContext;
 use actix::Context;
 use actix::Message as MessageTrait;
 use actix::Handler;
+use actix::Running;
 use actix::SystemService;
 use query::doc::Aggregate;
 use query::doc::AggregateComputation;
@@ -19,6 +22,8 @@ use query::error::PoldaError;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use crate::broker::Broker;
 use crate::broker::CloseDocumentMsg;
@@ -30,12 +35,16 @@ use crate::executor::Job;
 use crate::executor::JobMsg;
 use crate::executor::JobKind;
 
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
+const TIMEOUT: Duration = Duration::from_secs(60);
+
 pub struct Document {
     path: String,
     doc: Doc,
     operations: Vec<Operation>,
     deleted_ops: usize,
-    clients: HashMap<String, Addr<Client>>
+    clients: HashMap<String, Addr<Client>>,
+    hb: Instant
 }
 
 impl Document {
@@ -45,13 +54,36 @@ impl Document {
             doc: demo_doc(),
             operations: vec![],
             deleted_ops: 0,
-            clients: HashMap::new()
+            clients: HashMap::new(),
+            hb: Instant::now()
         })
     }
 }
 
 impl Actor for Document {
     type Context = Context<Document>;
+
+    fn started(&mut self, ctx: &mut Context<Document>) {
+        // Check heart beat.
+        AsyncContext::run_interval(ctx, HEARTBEAT_INTERVAL, |act, ctx| {
+            if act.clients.len() > 0 {
+                act.hb = Instant::now();
+            } else if Instant::now().duration_since(act.hb) > TIMEOUT {
+                ActorContext::stop(ctx);
+                return;
+            }
+        });
+    }
+
+    fn stopping(&mut self, _ctx: &mut Context<Document>) -> Running {
+        let msg = CloseDocumentMsg {
+            path: self.path.clone()
+        };
+        <Broker as SystemService>::from_registry()
+            .do_send(msg);
+
+        Running::Stop
+    }
 }
 
 #[derive(MessageTrait)]
@@ -88,13 +120,6 @@ impl Handler<UnsubscribeMsg> for Document {
         _ctx: &mut Context<Document>
     ) {
         self.clients.remove(&msg.id);
-        if self.clients.len() == 0 {
-            let msg = CloseDocumentMsg {
-                path: self.path.clone()
-            };
-            <Broker as SystemService>::from_registry()
-                .do_send(msg);
-        }
     }
 }
 
