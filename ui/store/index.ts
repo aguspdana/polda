@@ -401,7 +401,7 @@ export const useStore = create<IState>((set): IState => {
               });
             }
             break;
-          
+
           case "sources":
             patch.sources = msg
               .sources
@@ -411,7 +411,7 @@ export const useStore = create<IState>((set): IState => {
                 return 0
               });
             break;
-          
+
           case "doc":
             patch.doc = msg.doc;
             patch.version = msg.version;
@@ -540,7 +540,7 @@ export const useStore = create<IState>((set): IState => {
               patch.query = null;
             }
             break;
-          
+
           case "error":
             if (state.query?.id === msg.id) {
               patch.query = {
@@ -553,7 +553,7 @@ export const useStore = create<IState>((set): IState => {
           default:
             console.error("Received an unknown message", msg);
         }
-        
+
         return patch;
       });
     },
@@ -606,7 +606,7 @@ export const useStore = create<IState>((set): IState => {
                 moved: true
               };
               break;
-            
+
             case "nodes":
               if (state.movable.moved || Math.abs(dx) > 2 || Math.abs(dy) > 2) {
                 const dxZoomed = dx / state.canvasZoom;
@@ -629,7 +629,7 @@ export const useStore = create<IState>((set): IState => {
                 };
               }
               break;
-            
+
             case "output":
               let height = state.movable.fromHeight - dy;
               if (height < 0) {
@@ -645,7 +645,7 @@ export const useStore = create<IState>((set): IState => {
                 };
               }
               break;
-            
+
             case "sidebar":
               const SIDEBAR_MAX_WIDTH = 320;
               let width = state.movable.fromWidth + dx;
@@ -1279,7 +1279,7 @@ function executeOperationsOnState(state: IState, ops: EOperation[]): Partial<ISt
   }
 
   const patch: Partial<IState> = {};
-  
+
   if (state.doc !== null) {
     try {
       const { doc, ops: _ops, undo } = executeOperations(state.doc, ops);

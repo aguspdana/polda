@@ -6,7 +6,13 @@ export function useWS<IncommingMsg = object, OutgoingMsg = object>(url: string, 
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socket = new WS(url, { clearQueueOnClose: true });
+    const socket = new WS(
+      url,
+      {
+        reconnectOnClose: true,
+        clearQueueOnClose: true
+      }
+    );
 
     socket.addEventListener("open", () => {
       setConnected(false);
