@@ -4,12 +4,20 @@ use actix::Context;
 use actix::Message as MessageTrait;
 use actix::Handler;
 use actix::SystemService;
+use query::doc::Aggregate;
+use query::doc::AggregateComputation;
 use query::doc::Doc;
+use query::doc::InputName;
+use query::doc::Node;
 use query::doc::Operation;
+use query::doc::Position;
+use query::doc::SortDirection;
+use query::doc::Sorter;
 use query::doc::transform_batch;
 use query::doc::validate_sequence;
 use query::error::PoldaError;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::broker::Broker;
@@ -34,7 +42,7 @@ impl Document {
     pub fn open(path: String) -> Result<Document, PoldaError> {
         Ok(Document {
             path,
-            doc: Doc::new(),
+            doc: demo_doc(),
             operations: vec![],
             deleted_ops: 0,
             clients: HashMap::new()
@@ -280,4 +288,85 @@ impl Handler<ReadFileMsg> for Document {
         <Executor as SystemService>::from_registry()
             .do_send(msg);
     }
+}
+
+fn demo_doc() -> Doc {
+    let mut doc = Doc::new();
+    let ops = vec![
+        Operation::InsertNode {
+            node: Node::LoadCsv {
+                id: "demo_1".to_string(),
+                position: Position {
+                    x: 0.0,
+                    y: 0.0
+                },
+                filename: "Forbes 2000.csv".to_string(),
+                outputs: HashSet::new()
+            }
+        },
+        Operation::InsertIndex {
+            id: "demo_1".to_string(),
+            index: 0
+        },
+        Operation::InsertNode {
+            node: Node::Aggregate {
+                id: "demo_2".to_string(),
+                position: Position {
+                    x: 256.0 + 64.0,
+                    y: 0.0
+                },
+                input: None,
+                aggregates: vec![
+                    Aggregate {
+                        column: "Industry".to_string(),
+                        computation: AggregateComputation::Group,
+                        alias: "".to_string()
+                    },
+                    Aggregate {
+                        column: "Market Value (Billions)".to_string(),
+                        computation: AggregateComputation::Sum,
+                        alias: "".to_string()
+                    }
+                ],
+                outputs: HashSet::new()
+            }
+        },
+        Operation::InsertIndex {
+            id: "demo_2".to_string(),
+            index: 0
+        },
+        Operation::SetInput {
+            id: "demo_2".to_string(),
+            name: InputName::Primary,
+            input: Some("demo_1".to_string())
+        },
+        Operation::InsertNode {
+            node: Node::Sort {
+                id: "demo_3".to_string(),
+                position: Position {
+                    x: 2.0 * (256.0 + 64.0),
+                    y: 0.0
+                },
+                input: None,
+                sorters: vec![
+                    Sorter {
+                        column: "Market Value (Billions)".to_string(),
+                        direction: SortDirection::Desc
+                    }
+                ],
+                outputs: HashSet::new()
+            }
+        },
+        Operation::InsertIndex {
+            id: "demo_3".to_string(),
+            index: 0
+        },
+        Operation::SetInput {
+            id: "demo_3".to_string(),
+            name: InputName::Primary,
+            input: Some("demo_2".to_string())
+        }
+    ];
+    doc.execute_operations(ops).unwrap();
+    doc
 }
