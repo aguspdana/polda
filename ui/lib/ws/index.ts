@@ -1,8 +1,8 @@
 interface WebSocketEventMap {
-  'close': CloseEvent;
-  'error': Event;
-  'message': MessageEvent;
-  'open': Event;
+  close: CloseEvent;
+  error: Event;
+  message: MessageEvent;
+  open: Event;
 }
 
 interface Options {
@@ -102,10 +102,14 @@ export class WS {
 
   close() {
     this.ws?.close();
+    this.queue = [];
     this.ws = null;
   }
 
   private connect() {
+    if (typeof WebSocket === "undefined") {
+      return;
+    }
     this.ws = new WebSocket(this.url);
     this.ws.onclose = this.handleCloseEvent.bind(this);
     this.ws.onerror = this.handleErrorEvent.bind(this);
@@ -141,7 +145,9 @@ export class WS {
 
       setTimeout(() => {
         // Reconnect if it hasn't been closed manually.
-        if (this.ws && [WebSocket.CONNECTING, WebSocket.OPEN].includes(this.ws.readyState)) {
+        const connecting = this.ws?.readyState === WebSocket.CONNECTING;
+        const open = this.ws?.readyState === WebSocket.OPEN;
+        if (this.ws && !connecting && !open) {
           this.connect();
         }
       }, duration);
@@ -164,7 +170,9 @@ export class WS {
 
       setTimeout(() => {
         // Reconnect if it hasn't been closed manually.
-        if (this.ws && [WebSocket.CONNECTING, WebSocket.OPEN].includes(this.ws.readyState)) {
+        const connecting = this.ws?.readyState === WebSocket.CONNECTING;
+        const open = this.ws?.readyState === WebSocket.OPEN;
+        if (this.ws && !connecting && !open) {
           this.connect();
         }
       }, duration);
@@ -216,7 +224,7 @@ export class WS {
   }
 
   get readyState() {
-    return this.ws !== null ? this.ws.readyState : 3;
+    return this.ws !== null ? this.ws.readyState : WebSocket.CLOSED;
   }
 
   removeEventListener<T extends keyof WebSocketEventMap>(
@@ -225,17 +233,17 @@ export class WS {
   ) {
     this.ws?.removeEventListener(type, listener);
     switch (type) {
-      case "close":
-        this.closeListeners = this.closeListeners.filter(f => f !== listener);
+      case "open":
+        this.openListeners = this.openListeners.filter(f => f !== listener);
         break;
-      case "error":
-        this.closeListeners = this.errorListeners.filter(f => f !== listener);
-        break;
-      case "close":
+      case "message":
         this.messageListeners = this.messageListeners.filter(f => f !== listener);
         break;
+      case "error":
+        this.errorListeners = this.errorListeners.filter(f => f !== listener);
+        break;
       case "close":
-        this.openListeners = this.openListeners.filter(f => f !== listener);
+        this.closeListeners = this.closeListeners.filter(f => f !== listener);
         break;
     }
   }
@@ -256,12 +264,13 @@ export class WS {
 }
 
 function calcNextBackoff(backoff: number, max: number): number {
-  let nextBackoff = 500;
-  if (backoff > 0) {
-    nextBackoff = backoff + backoff * 0.1 * Math.random();
+  const MIN = 50;
+  let nextBackoff = MIN;
+  if (backoff > MIN) {
+    nextBackoff = backoff * (2 + 0.2 * Math.random() - 0.1);
   }
   if (nextBackoff > max) {
-    nextBackoff = max - max * 0.2 * Math.random();
+    nextBackoff = max * (1 + 0.2 * Math.random() - 0.1);
   }
   return nextBackoff;
 }
